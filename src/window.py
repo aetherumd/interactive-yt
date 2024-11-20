@@ -17,9 +17,11 @@ class YTWindow(QWidget):
             "sliceplot": True, # True -> slice plot, False -> projection plot 
             "direction": [1,0,0],
             "width": 100, 
-            "datasource": None,
+            "data_source": None,
             "ds_fields": [],
-            "imagepath": "tmp.png",
+            "ds_center": (0,0,0),
+            "field": [("ramses", "HeII")],
+            "image_path": "tmp.png",
         }
 
     def __init_layout__(self):
@@ -42,7 +44,12 @@ class YTWindow(QWidget):
         tab_menu.addTab("edit plot")
 
         tab_menu.tabBarClicked.connect(self.tab_switch)
+
         scroll_area = self.widgets["scroll_area"] = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+
+        scroll_area_widget = self.widgets["scroll_area_widget"] = PlotMakerPanel(self)
+        scroll_area.setWidget(scroll_area_widget)
 
         action_bar = self.widgets["action_bar"] = QWidget()
         action_bar_layout = QHBoxLayout(action_bar)
@@ -67,16 +74,22 @@ class YTWindow(QWidget):
         
         self.widgets["left"].setFixedWidth(self.width()//2-1)
         self.widgets["left"].setFixedHeight(self.width()//2-1)
+        
+        self.tab_switch(0)
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
+        """
         self.widgets["left"].setFixedWidth(event.size().width()//2)
         self.widgets["left"].setFixedHeight(event.size().width()//2)
-        
-
+        """
+        self.widgets["right"].setMaximumWidth(event.size().width() - self.widgets["left"].width())
+        self.widgets["scroll_area"].setMaximumWidth(event.size().width() - self.widgets["left"].width())
+        #self.widgets["scroll_area_widget"].setMaximumWidth(event.size().width() - self.widgets["left"].width())
+        self.widgets["scroll_area_widget"].resizeEvent(event)
     def set_image(self, image_path=""):
         if image_path == "":
-            self.widgets["image"].setPixmap(QPixmap.fromImage(QImage(self.get_attribute("imagepath"))))
+            self.widgets["image"].setPixmap(QPixmap.fromImage(QImage(self.get_attribute("image_path"))))
         else:
             self.widgets["image"].setPixmap(QPixmap.fromImage(QImage(image_path)))
 
@@ -93,6 +106,7 @@ class YTWindow(QWidget):
         match i:
             case 0:
                 plot_maker = self.widgets["scroll_area_widget"] = PlotMakerPanel(self)
+                self.widgets["scroll_area"].setWidget(plot_maker)
                 pb = self.widgets["plot_button"]
                 try:
                     pb.clicked.disconnect()
@@ -103,11 +117,13 @@ class YTWindow(QWidget):
 
             case 1:
                 plot_editor = self.widgets["scroll_area_widget"] = PlotEditorPanel(self)
+                self.widgets["scroll_area"].setWidget(plot_editor)
                 pb = self.widgets["plot_button"]
                 try:
                     pb.clicked.disconnect()
                     pb.clicked.connect(plot_editor.update_fields)
                     pb.clicked.connect(self.plot)
+                    
                 except:
                     print("plot_button connect failed")
 
@@ -115,6 +131,8 @@ class YTWindow(QWidget):
     @QtCore.Slot()
     def plot(self):
         if self.get_attribute("data_source") != None:
+            plot_maker = self.widgets["scroll_area_widget"]
+            plot_maker.update_fields()
             temp = yt.SlicePlot(self.get_attribute("data_source"), self.get_attribute("direction"), self.get_attribute("field"))
             temp.save(self.get_attribute("image_path"))
             self.set_image(self.get_attribute("image_path"))
@@ -126,8 +144,9 @@ class YTWindow(QWidget):
         s = f.filesSelected()[0]
         if (s != None):
             ds = yt.load(s)
-            self.set_attribute("ds", ds)
-            self.set_attribute("fields", ds.field_list)
+            self.set_attribute("data_source", ds)
+            self.set_attribute("ds_fields", ds.field_list)
+            self.widgets["scroll_area_widget"].refresh()
 
 class FileDialog(QFileDialog):
     def __init__(self, *args):
