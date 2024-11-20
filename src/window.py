@@ -79,14 +79,15 @@ class YTWindow(QWidget):
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        """
+        
         self.widgets["left"].setFixedWidth(event.size().width()//2)
         self.widgets["left"].setFixedHeight(event.size().width()//2)
-        """
+        
         self.widgets["right"].setMaximumWidth(event.size().width() - self.widgets["left"].width())
         self.widgets["scroll_area"].setMaximumWidth(event.size().width() - self.widgets["left"].width())
-        #self.widgets["scroll_area_widget"].setMaximumWidth(event.size().width() - self.widgets["left"].width())
+        
         self.widgets["scroll_area_widget"].resizeEvent(event)
+    
     def set_image(self, image_path=""):
         if image_path == "":
             self.widgets["image"].setPixmap(QPixmap.fromImage(QImage(self.get_attribute("image_path"))))
@@ -215,12 +216,6 @@ class PlotMakerPanel(QWidget):
 
             layout.addWidget(entry)
 
-    def resizeEvent(self, event):
-        for entry in self.entries:
-            #entry.setFixedWidth(event.size().width()//2)
-            pass
-        
-    
     def refresh(self):
         field_select, t, v = self.widgets["field"]
         field_select.clear()
