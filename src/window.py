@@ -157,25 +157,29 @@ class PlotMakerPanel(QWidget):
     def __init__(self, parent):
         super().__init__()
         self.parent = parent
+        self.__init_layout__()
     
-    def __init_layout__():
-        pass
+    def __init_layout__(self):
+        self.widgets = {}
     
     @QtCore.Slot()
-    def update_fields():
+    def update_fields(self):
         pass
 
 class PlotEditorPanel(QWidget):
     def __init__(self, parent):
-        super().__init__()
+        super().__init__(self)
         self.parent = parent
+        self.__init_layout__()
 
-    def __init_layout__():
+    def __init_layout__(self):
         pass
 
     @QtCore.Slot()
     def update_fields():
         pass
+
+
 
 if __name__ == "__main__":
     app = QtWidgets.QApplication([])
