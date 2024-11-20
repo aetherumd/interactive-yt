@@ -2,134 +2,83 @@ from PySide6 import QtCore, QtWidgets, QtGui
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import *
 from PySide6.QtGui import QPixmap, QImage
-import yt
-import os
+import os, sys, yt
 from enum import Enum
 
-class YTWindow(QtWidgets.QWidget):
+class YTWindow(QWidget):
     def __init__(self):
         super().__init__()
-        self.layout = QHBoxLayout(self)
 
+        self.__init_attributes__()
+        self.__init_layout__()
+
+    def __init_attributes__(self):
         self.attributes = {
-            "sliceplot": True,
-            "direction": "y",
-            "field": ("ramses", "HeII"),
-            "datasource": "",
-            "savetofilename": "tmp.png",
-            "ds": None,
-            "fields": []
+            "sliceplot": True, # True -> slice plot, False -> projection plot 
+            "direction": [1,0,0],
+            "width": 100, 
+            "datasource": None,
+            "ds_fields": [],
+            "imagepath": "tmp.png",
         }
 
-        self.direction = "y"
-        self.field = ("ramses","HeII")
-        self.data_source = ""
+    def __init_layout__(self):
+        self.widgets = {}
+        layout = QHBoxLayout(self)
 
+        left = self.widgets["left"] = QWidget()
+        left_layout = QVBoxLayout(left)
 
-        self.init_layout()
+        image = self.widgets["image"] = QLabel()
+        image.setScaledContents(True)
+        self.set_image()
 
-    @QtCore.Slot()
-    def tabSwitchFn(self, i):
-        if i == 0:
-            p = PlotMakerPanel(self)
-            self.panel_area.setWidget(p)
-            self.plot_button.clicked.connect(p.update_parent_attributes)
-        elif i == 1:
-            self.panel_area.setWidget(PlotEditorPanel(self))
+        right = self.widgets["right"] = QWidget()
+        right_layout = QVBoxLayout(right)
 
-        self.layout.addWidget(self.left)
-        self.layout.addWidget(self.right)
-
-    @QtCore.Slot()
-    def plot(self):
-        if self.data_source != None:
-            print(f"{self.get_attribute("ds")},{self.get_attribute("direction")},{self.get_attribute("field")}")
-            temp = yt.SlicePlot(self.get_attribute("ds"), self.get_attribute("direction"), self.get_attribute("field"))
-            temp.save(self.get_attribute("savetofilename"))
-            #self.image_panel.setPixmap(QPixmap.fromImage(QImage(self.image_path)))
-            self.set_image(self.get_attribute("savetofilename"))
+        tab_menu = self.widgets["tab_menu"] = QTabBar()
         
+        tab_menu.addTab("make plot")
+        tab_menu.addTab("edit plot")
 
-    def init_layout(self):
-        self.left, self.right = QLabel(), QLabel()
+        tab_menu.tabBarClicked.connect(self.tab_switch)
+        scroll_area = self.widgets["scroll_area"] = QScrollArea()
 
-        leftLO = QVBoxLayout()
-        rightLO = QVBoxLayout()
+        action_bar = self.widgets["action_bar"] = QWidget()
+        action_bar_layout = QHBoxLayout(action_bar)
 
-        self.image_panel = QLabel(alignment=Qt.AlignCenter)
-        #self.image_panel.setPixmap(QPixmap.fromImage(QImage(self.get_attribute("savetofilename"))))
-        self.set_image(self.get_attribute("savetofilename"))
-        self.image_panel.setScaledContents(1)
-
-        leftLO.addWidget(self.image_panel)
-        self.left.setLayout(leftLO)
-
-        menu = QTabBar()
-        self.panel_area = QScrollArea()
-
-        self.panel_area.setWidget(PlotMakerPanel(self))
-        menu.addTab("make")
-        menu.addTab("edit")
-        menu.tabBarClicked.connect(self.tabSwitchFn)
-
-        action_bar = QWidget()
-        ab_lo = QHBoxLayout()
-
-        self.plot_button = QPushButton("make plot")
-        self.plot_button.clicked.connect(self.plot)
-
-        file_button = QPushButton("select file")
-        file_button.clicked.connect(self.open_file_dialog)
-
-        ab_lo.addWidget(self.plot_button)
-        ab_lo.addWidget(file_button)
-
-        action_bar.setLayout(ab_lo)
-
-        rightLO.addWidget(menu)
-        rightLO.addWidget(self.panel_area)
-        rightLO.addWidget(action_bar)
+        plot_button = self.widgets["plot_button"] = QPushButton("plot")
+        plot_button.clicked.connect(self.plot)
         
-        self.right.setLayout(rightLO)
+        file_select = self.widgets["file_select"] = QPushButton("select file")
+        file_select.clicked.connect(self.open_file_dialog)
 
-        self.left.setFixedWidth(self.width()//2)
-        self.left.setFixedHeight(self.width()//2)
+        action_bar_layout.addWidget(plot_button)
+        action_bar_layout.addWidget(file_select)
 
-        self.layout.addWidget(self.left)
-        self.layout.addWidget(self.right)
-    
-    @QtCore.Slot()
-    def open_file_dialog(self):
-        """
-        fd = QFileDialog(self, directory="C:")
-        fd.setFileMode(QFileDialog.AnyFile)
+        left_layout.addWidget(image)
 
-        if fd.exec():
-            self.data_source = yt.load(fd.selectedFiles()[0])
-        """
-        f = FileDialog()
+        right_layout.addWidget(tab_menu)
+        right_layout.addWidget(scroll_area)
+        right_layout.addWidget(action_bar)
 
-        f.exec()
-        s = f.filesSelected()[0]
-        if (s != None):
-            #self.data_source = yt.load(s)
-            ds = yt.load(s)
-            self.set_attribute("ds", ds)
-            self.set_attribute("fields", ds.field_list)
-            self.panel_area.setWidget(PlotMakerPanel(self))
+        layout.addWidget(left)
+        layout.addWidget(right)
+        
+        self.widgets["left"].setFixedWidth(self.width()//2-1)
+        self.widgets["left"].setFixedHeight(self.width()//2-1)
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        self.left.setFixedWidth(event.size().width()//2)
-        self.left.setFixedHeight(event.size().width()//2)
+        self.widgets["left"].setFixedWidth(event.size().width()//2)
+        self.widgets["left"].setFixedHeight(event.size().width()//2)
         
-    def set_data_source(self, data_source):
-        self.data_source = data_source
-        self.set_attribute("datasource", data_source)
 
-    def set_image(self, image_path):
-        self.set_attribute("savetofilename", "imagepath")
-        self.image_panel.setPixmap(QPixmap.fromImage(QImage(self.get_attribute("savetofilename"))))
+    def set_image(self, image_path=""):
+        if image_path == "":
+            self.widgets["image"].setPixmap(QPixmap.fromImage(QImage(self.get_attribute("imagepath"))))
+        else:
+            self.widgets["image"].setPixmap(QPixmap.fromImage(QImage(image_path)))
 
     def get_attribute(self, attribute):
         return self.attributes.get(attribute)
@@ -137,6 +86,48 @@ class YTWindow(QtWidgets.QWidget):
     def set_attribute(self, attribute, val):
         self.attributes[attribute] = val
 
+
+    @QtCore.Slot()
+    def tab_switch(self, i):
+        scroll_area = self.widgets["scroll_area"]
+        match i:
+            case 0:
+                plot_maker = self.widgets["scroll_area_widget"] = PlotMakerPanel(self)
+                pb = self.widgets["plot_button"]
+                try:
+                    pb.clicked.disconnect()
+                    pb.clicked.connect(plot_maker.update_fields)
+                    pb.clicked.connect(self.plot)
+                except:
+                    print("plot_button connect failed")
+
+            case 1:
+                plot_editor = self.widgets["scroll_area_widget"] = PlotEditorPanel(self)
+                pb = self.widgets["plot_button"]
+                try:
+                    pb.clicked.disconnect()
+                    pb.clicked.connect(plot_editor.update_fields)
+                    pb.clicked.connect(self.plot)
+                except:
+                    print("plot_button connect failed")
+
+
+    @QtCore.Slot()
+    def plot(self):
+        if self.get_attribute("data_source") != None:
+            temp = yt.SlicePlot(self.get_attribute("data_source"), self.get_attribute("direction"), self.get_attribute("field"))
+            temp.save(self.get_attribute("image_path"))
+            self.set_image(self.get_attribute("image_path"))
+
+    @QtCore.Slot()
+    def open_file_dialog(self):
+        f = FileDialog()
+        f.exec()
+        s = f.filesSelected()[0]
+        if (s != None):
+            ds = yt.load(s)
+            self.set_attribute("ds", ds)
+            self.set_attribute("fields", ds.field_list)
 
 class FileDialog(QFileDialog):
     def __init__(self, *args):
@@ -162,80 +153,35 @@ class FileDialog(QFileDialog):
     def filesSelected(self):
         return self.selectedFiles
     
-class Panel(QtWidgets.QWidget):
-    def __init__(self):
-        super().__init__()
-
-class PlotMakerPanel(Panel):
+class PlotMakerPanel(QWidget):
     def __init__(self, parent):
         super().__init__()
         self.parent = parent
-        
-        self.layout = QVBoxLayout(self)
-        self.wgts = {}
-        
-        self.__init_layout__()
-
-    def __init_layout__(self):
-        wgts = [
-            (PanelOption.CHECK, "Slice Plot", "sliceplot"),
-
-            (PanelOption.DROPDOWN, "Field", "field", self.parent.get_attribute("ds").field_list if self.parent.get_attribute("ds") != None else []),
-
-            (PanelOption.INPUT, "Save to:", "savetofilename"),
-        ]
-        for wgt in wgts:
-            w = QWidget()
-            lo = QHBoxLayout(w)
-            label = QLabel(wgt[1])
-            lo.addWidget(label)
-            q = QWidget()
-            match wgt[0]:
-                case PanelOption.CHECK:
-                    q = QCheckBox()
-                    q.setCheckState(Qt.Checked)
-                case PanelOption.DROPDOWN:
-                    q = QComboBox()
-                    q.addItems(wgt[3])
-                case PanelOption.INPUT:
-                    q = QLineEdit()
-            lo.addWidget(q)
-
-            self.wgts[wgt[1]] = (q, wgt[0], wgt[2])
-
-            self.layout.addWidget(w)
-            
-    def get_wgt_attribute(wgt, w):
-        match w:
-            case PanelOption.CHECK:
-                wgt.checkState()
-            case PanelOption.DROPDOWN:
-                wgt.currentText()
-            case PanelOption.INPUT:
-                wgt.getText()
-
-    def refresh(self):
-        w, op, a = self.wgts["field"]
-        w.clear()
-        w.addItem(self.parent.get_attribute("ds").field_list)
-
+    
+    def __init_layout__():
+        pass
     
     @QtCore.Slot()
-    def update_parent_attributes(self):
-        for wgt in self.wgts.keys:
-            w, op, a = self.wgts[wgt]
-            self.parent.set_attribute(a, self.get_wgt_attribute(wgt, op))
+    def update_fields():
+        pass
 
-
-
-        
-class PanelOption(Enum):
-    CHECK = 1
-    INPUT = 2
-    DROPDOWN = 3
-
-class PlotEditorPanel(Panel):
+class PlotEditorPanel(QWidget):
     def __init__(self, parent):
         super().__init__()
         self.parent = parent
-    
+
+    def __init_layout__():
+        pass
+
+    @QtCore.Slot()
+    def update_fields():
+        pass
+
+if __name__ == "__main__":
+    app = QtWidgets.QApplication([])
+
+    ytw = YTWindow()
+    ytw.resize(600,600)
+    ytw.show()
+
+    sys.exit(app.exec())
