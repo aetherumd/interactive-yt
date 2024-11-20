@@ -92,18 +92,24 @@ class YTWindow(QWidget):
         scroll_area = self.widgets["scroll_area"]
         match i:
             case 0:
-                plot_maker_panel = self.widgets["scroll_area_widget"] = PlotMakerPanel(self)
+                plot_maker = self.widgets["scroll_area_widget"] = PlotMakerPanel(self)
                 pb = self.widgets["plot_button"]
                 try:
                     pb.clicked.disconnect()
-                    pb.clicked.connect(plot_maker_panel.update_fields)
+                    pb.clicked.connect(plot_maker.update_fields)
                     pb.clicked.connect(self.plot)
                 except:
                     print("plot_button connect failed")
 
             case 1:
-                plot_maker_panel = self.widgets["scroll_area_widget"] = PlotEditorPanel(self)
+                plot_editor = self.widgets["scroll_area_widget"] = PlotEditorPanel(self)
                 pb = self.widgets["plot_button"]
+                try:
+                    pb.clicked.disconnect()
+                    pb.clicked.connect(plot_editor.update_fields)
+                    pb.clicked.connect(self.plot)
+                except:
+                    print("plot_button connect failed")
 
 
     @QtCore.Slot()
