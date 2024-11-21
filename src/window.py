@@ -22,6 +22,10 @@ class YTWindow(QWidget):
             "ds_center": (0,0,0),
             "field": [("ramses", "HeII")],
             "image_path": "tmp.png",
+            "plot_type": PlotOption.SLICE_PLOT,
+            "ds_field_x": None,
+            "ds_field_y": None,
+            "ds_field_z": None,
         }
 
     def __init_layout__(self):
@@ -134,7 +138,14 @@ class YTWindow(QWidget):
         if self.get_attribute("data_source") != None:
             plot_maker = self.widgets["scroll_area_widget"]
             plot_maker.update_fields()
-            temp = yt.SlicePlot(self.get_attribute("data_source"), self.get_attribute("direction"), self.get_attribute("field"))
+            temp = None
+            match self.get_attribute("plot_type"):
+                case PlotOption.SLICE_PLOT:
+                    temp = yt.SlicePlot(self.get_attribute("data_source"), self.get_attribute("direction"), self.get_attribute("field"))
+                case PlotOption.PARTICLE_PLOT:
+                    temp = yt.ParticlePlot(self.get_attribute("data_source"))
+                case PlotOption.PROJECTION_PLOT:
+                    temp = yt.ProjectionPlot(self.get_attribute("data_source"), self.get_attribute("direction"), self.get_attribute("field"))
             temp.save(self.get_attribute("image_path"))
             self.set_image(self.get_attribute("image_path"))
 
@@ -184,9 +195,10 @@ class PlotMakerPanel(QWidget):
         self.entries = []
         
         wgts = {
-            "Slice plot?": (IOOption.CHECKBOX, True, "sliceplot"),
+            "Slice plot": (IOOption.CHECKBOX, True, "sliceplot"),
             "Direction": (IOOption.USER_ENTRY, "x", "direction"),
-            "Field": (IOOption.DROPDOWN, self.parent.get_attribute("ds_fields"), "field")
+            "Field": (IOOption.DROPDOWN, self.parent.get_attribute("ds_fields"), "field"),
+            "Plot Type": (IOOption.DROPDOWN, [PlotOption.SLICE_PLOT, PlotOption.PARTICLE_PLOT, PlotOption.PROJECTION_PLOT], "plot_type"),
         }
 
         layout = QVBoxLayout(self)
@@ -200,7 +212,8 @@ class PlotMakerPanel(QWidget):
             match t:
                 case IOOption.DROPDOWN:
                     w = QComboBox()
-                    w.addItems(v)
+                    for vi in v:
+                        w.addItem(str(vi))
                 case IOOption.USER_ENTRY:
                     w = QLineEdit()
                     w.setText(v)
@@ -241,10 +254,20 @@ class PlotMakerPanel(QWidget):
                     val = w.isChecked()
             self.parent.set_attribute(wgt_label, val)
 
+    @QtCore.Slot()
+    def update_plot_parameter_panel():
+        pass
+    #Todo - add classes? for each type of panel or probably just methods
+
 class IOOption(Enum):
     DROPDOWN = 0,
     USER_ENTRY = 1,
     CHECKBOX = 2
+
+class PlotOption(Enum):
+    SLICE_PLOT = 0,
+    PARTICLE_PLOT = 1,
+    PROJECTION_PLOT = 2
     
 class PlotEditorPanel(QWidget):
     def __init__(self, parent):
