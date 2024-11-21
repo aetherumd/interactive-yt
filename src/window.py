@@ -185,6 +185,10 @@ class PlotMakerPanel(QWidget):
     def update_fields(self):
         pass
 
+    @QtCore.Slot()
+    def refresh(self):
+        pass
+
 class PlotEditorPanel(QWidget):
     def __init__(self, parent):
         super().__init__(self)
@@ -197,7 +201,10 @@ class PlotEditorPanel(QWidget):
     @QtCore.Slot()
     def update_fields():
         pass
-
+    
+    @QtCore.Slot()
+    def refresh(self):
+        pass
 
 
 if __name__ == "__main__":
