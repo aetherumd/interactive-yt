@@ -52,7 +52,10 @@ class YTWindow(QWidget):
         scroll_area = self.widgets["scroll_area"] = QScrollArea()
         scroll_area.setWidgetResizable(True)
 
-        scroll_area_widget = self.widgets["scroll_area_widget"] = PlotMakerPanel(self)
+        pmp = self.widgets["pmp"] = PlotMakerPanel(self)
+        pep = self.widgets["pep"] = PlotEditorPanel(self)
+        
+        scroll_area_widget = self.widgets["scroll_area_widget"] = pmp
         scroll_area.setWidget(scroll_area_widget)
 
         action_bar = self.widgets["action_bar"] = QWidget()
@@ -110,27 +113,33 @@ class YTWindow(QWidget):
         scroll_area = self.widgets["scroll_area"]
         match i:
             case 0:
-                plot_maker = self.widgets["scroll_area_widget"] = PlotMakerPanel(self)
-                self.widgets["scroll_area"].setWidget(plot_maker)
-                pb = self.widgets["plot_button"]
-                try:
-                    pb.clicked.disconnect()
-                    pb.clicked.connect(plot_maker.update_fields)
-                    pb.clicked.connect(self.plot)
-                except:
-                    print("plot_button connect failed")
+                plot_maker = self.widgets["scroll_area_widget"] = self.widgets["pmp"]
+                print(type(plot_maker))
+                if type(scroll_area.widget()) == PlotEditorPanel:
+                    self.widgets["pep"] = scroll_area.takeWidget()
+                    scroll_area.setWidget(plot_maker)
+                    pb = self.widgets["plot_button"]
+                    try:
+                        pb.clicked.disconnect()
+                        pb.clicked.connect(plot_maker.update_fields)
+                        pb.clicked.connect(self.plot)
+                    except:
+                        print("plot_button connect failed")
 
             case 1:
-                plot_editor = self.widgets["scroll_area_widget"] = PlotEditorPanel(self)
-                self.widgets["scroll_area"].setWidget(plot_editor)
-                pb = self.widgets["plot_button"]
-                try:
-                    pb.clicked.disconnect()
-                    pb.clicked.connect(plot_editor.update_fields)
-                    pb.clicked.connect(self.plot)
-                    
-                except:
-                    print("plot_button connect failed")
+                plot_editor = self.widgets["scroll_area_widget"] = self.widgets["pep"]
+                print(type(plot_editor))
+                print(type(scroll_area.widget()))
+                if type(scroll_area.widget()) == PlotMakerPanel:
+                    self.widgets["pmp"] = scroll_area.takeWidget()
+                    scroll_area.setWidget(plot_editor)
+                    pb = self.widgets["plot_button"]
+                    try:
+                        pb.clicked.disconnect()
+                        pb.clicked.connect(plot_editor.update_fields)
+                        pb.clicked.connect(self.plot)
+                    except:
+                        print("plot_button connect failed")
 
 
     @QtCore.Slot()
@@ -229,6 +238,7 @@ class PlotMakerPanel(QWidget):
 
             layout.addWidget(entry)
 
+    @QtCore.Slot()
     def refresh(self):
         field_select, t, v = self.widgets["field"]
         field_select.clear()
@@ -271,7 +281,7 @@ class PlotOption(Enum):
     
 class PlotEditorPanel(QWidget):
     def __init__(self, parent):
-        super().__init__(self)
+        super().__init__()
         self.parent = parent
         self.__init_layout__()
 
@@ -280,6 +290,10 @@ class PlotEditorPanel(QWidget):
 
     @QtCore.Slot()
     def update_fields():
+        pass
+
+    @QtCore.Slot()
+    def refresh(self):
         pass
 
 if __name__ == "__main__":
