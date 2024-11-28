@@ -4,6 +4,7 @@ from PySide6.QtWidgets import *
 from PySide6.QtGui import QPixmap, QImage
 import os, sys, yt
 from enum import Enum
+from interactive_yt import interface
 
 class YTWindow(QWidget):
     def __init__(self):
@@ -28,10 +29,9 @@ class YTWindow(QWidget):
         self.widgets = {}
         layout = QHBoxLayout(self)
 
-        left = self.widgets["left"] = QWidget()
-        left_layout = QVBoxLayout(left)
+        left = self.widgets["left"] = interface.MovImgWidget()
 
-        image = self.widgets["image"] = QLabel()
+        image = self.widgets["image"] = left.image_section
         image.setScaledContents(True)
         self.set_image()
 
@@ -62,8 +62,6 @@ class YTWindow(QWidget):
 
         action_bar_layout.addWidget(plot_button)
         action_bar_layout.addWidget(file_select)
-
-        left_layout.addWidget(image)
 
         right_layout.addWidget(tab_menu)
         right_layout.addWidget(scroll_area)
@@ -131,11 +129,16 @@ class YTWindow(QWidget):
     @QtCore.Slot()
     def plot(self):
         if self.get_attribute("data_source") != None:
-            plot_maker = self.widgets["scroll_area_widget"]
+    		#TODO change image in init to image_section
+            image_section = self.widgets["left"]
+            image_section.plot = yt.ProjectionPlot(self.get_attribute("data_source"),self.get_attribute("direction"), self.get_attribute("field"))
+            image_section.update_image()
+            """plot_maker = self.widgets["scroll_area_widget"]
             plot_maker.update_fields()
             temp = yt.SlicePlot(self.get_attribute("data_source"), self.get_attribute("direction"), self.get_attribute("field"))
             temp.save(self.get_attribute("image_path"))
-            self.set_image(self.get_attribute("image_path"))
+            self.set_image(self.get_attribute("image_path"))"""
+    		
 
     @QtCore.Slot()
     def open_file_dialog(self):
