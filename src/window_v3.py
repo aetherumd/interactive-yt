@@ -10,8 +10,11 @@ import yt.data_objects
 import yt.data_objects.static_output
 from info_handling import EventBroker, Publisher, Subscriber
 
-#testing
-import time
+"""
+biggest problems atm:
+strings as keys are inconsistent at best, maybe try enums?
+layouts
+"""
 
 class PlotOption(Enum):
     SLICE_PLOT = 1,
@@ -213,34 +216,39 @@ class PlotManager(Subscriber, Publisher):
         if self.activated:
             match self.query("plot_type"):
                 case PlotOption.SLICE_PLOT | PlotOption.PROJECTION_PLOT | PlotOption.PARTICLE_PLOT:
-                    plot: yt.AxisAlignedSlicePlot | yt.OffAxisSlicePlot | yt.AxisAlignedProjectionPlot |  yt.OffAxisProjectionPlot | yt.ParticleProjectionPlot = self.query("data_source")
+                    plot: yt.AxisAlignedSlicePlot | yt.OffAxisSlicePlot | yt.AxisAlignedProjectionPlot |  yt.OffAxisProjectionPlot | yt.ParticleProjectionPlot = self.query("plot")
                     data = self.query(name)
-                    match name:
-                        case "pan_x":
-                            plot.pan((data, 0))
-                        case "pan_y":
-                            plot.pan((0, data))
-                        case "pan_rel_x":
-                            plot.pan_rel((data, 0))
-                        case "pan_rel_y":
-                            plot.pan_rel((0, data))
-                        case "zoom":
-                            plot.zoom(data)
-                        case "axes_unit":
-                            plot.set_axes_unit(data)
-                        case "img_unit":
-                            plot.set_unit(data)
-                        case "center":
-                            plot.set_center(data)
-                        case "flip_horizontal":
-                            plot.flip_horizontal()
-                        case "flip_vertical":
-                            plot.flip_vertical()
-                        case "swap_axes":
-                            plot.swap_axes()
-                        # TODO: add functionality for annotations
-                        case _:
-                            pass
+                    if plot is not None and data is not None:
+                        match name:
+                            case "pan_x":
+                                plot.pan((data, 0))
+                            case "pan_y":
+                                plot.pan((0, data))
+                            case "pan_rel_x":
+                                plot.pan_rel((data, 0))
+                            case "pan_rel_y":
+                                plot.pan_rel((0, data))
+                            case "zoom":
+                                plot.zoom(data)
+                            case "axes_unit":
+                                plot.set_axes_unit(data)
+                            case "img_unit":
+                                plot.set_unit(data)
+                            case "center":
+                                plot.set_center(data)
+                            case "flip_horizontal":
+                                plot.flip_horizontal()
+                            case "flip_vertical":
+                                plot.flip_vertical()
+                            case "swap_axes":
+                                plot.swap_axes()
+                            # TODO: add functionality for annotations
+                            case _:
+                                pass
+                        if plot is not None:
+                            path: str = self.query("img_name")
+                            plot.save(path)
+                            self.publish("img", QImage(path))
                 case PlotOption.PARTICLE_PHASE_PLOT:
                     phase_plot: yt.ParticlePhasePlot = self.query("data_source")
                     data = self.query(name)
@@ -322,6 +330,8 @@ class Test(Publisher):
         self.publish("dataset", ds)
         self.publish("fields", [("ramses", "HeII")])
         self.publish("create_plot", True)
+
+        self.publish("zoom", 10)
 
         # kinda works !
 

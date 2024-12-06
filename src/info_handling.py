@@ -32,14 +32,12 @@ class EventBroker:
             sub.notify(name)
 
     def query(self, name: str, default = (None, None, [])) -> Any:
-        print(self.entries.get(name, default))
         data, reset, subs = self.entries.get(name, default)
         if reset != None:
             self.entries[name] = (reset, reset, subs)
         return data
 
     def add_field(self, name: str, data: Any, reset: Any):
-        #print(f"added {name} with {data}, {default}")
         _, _, subs = self.entries.get(name, (data, reset, []))
         self.entries[name] = (data, reset, subs)
 
@@ -68,7 +66,6 @@ class Subscriber(AuthorUser):
         self.broker: "EventBroker" = broker
 
     def notify(self, name: str):
-        update = self.broker.query(name)
         self.handle_update(name)
     
     def query(self, name: str, default: Any = None) -> Any:
