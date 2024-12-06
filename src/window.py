@@ -152,7 +152,8 @@ class YTWindow(QWidget):
                 case PlotOption.SLICE_PLOT:
                     temp = yt.SlicePlot(self.get_attribute("data_source"), self.get_attribute("direction"), self.get_attribute("field"))
                 case PlotOption.PARTICLE_PLOT:
-                    temp = yt.ParticlePlot(self.get_attribute("data_source"))
+                    #temp = yt.ParticlePlot(self.get_attribute("data_source"))
+                    pass
                 case PlotOption.PROJECTION_PLOT:
                     temp = yt.ProjectionPlot(self.get_attribute("data_source"), self.get_attribute("direction"), self.get_attribute("field"))
             temp.save(self.get_attribute("image_path"))
