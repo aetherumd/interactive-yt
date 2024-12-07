@@ -225,6 +225,8 @@ class PlotMakerPanel(QWidget):
     
     def __init_layout__(self):
         self.widgets = {}
+		#for i in self.parent.attributes.keys():
+
     
     @QtCore.Slot()
     def update_fields(self):
