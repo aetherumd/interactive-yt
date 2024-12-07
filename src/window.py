@@ -27,7 +27,7 @@ class YTWindow(QWidget):
             "ds_field_y": None,
             "ds_field_z": None,
         }
-
+    
     def __init_layout__(self):
         self.widgets = {}
         layout = QHBoxLayout(self)
