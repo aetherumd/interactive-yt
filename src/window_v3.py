@@ -2,7 +2,7 @@ from PySide6 import QtCore, QtWidgets, QtGui
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import *
 from PySide6.QtGui import QPixmap, QImage
-import os, sys, yt, typing
+import sys, yt, typing
 from enum import Enum
 from typing import Any
 
@@ -133,6 +133,8 @@ class PlotMaker(Subscriber, Publisher):
                 "buff_size": self.query("buff_size", (800, 800)),
             }
 
+            # TODO fix query jank
+
             existing_params = {key: value for key, value in params.items() if value is not None}
 
             plot = yt.SlicePlot(
@@ -160,6 +162,9 @@ class PlotMaker(Subscriber, Publisher):
                 data_source = self.query("data_source", None),
                 buff_size = self.query("buff_size", (800, 800)),
             )
+            
+            # TODO fix query jank
+
             self.publish("plot", plot)
             return True
         return False
@@ -189,6 +194,9 @@ class PlotMaker(Subscriber, Publisher):
                 deposition = self.query("deposition", None),
                 figure_size = self.query("figure_size", None),
             )
+            
+            # TODO fix query jank
+            
             self.publish("plot", plot)
             return True
         return False
