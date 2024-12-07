@@ -29,9 +29,7 @@ class YTWindow(QWidget):
         self.widgets = {}
         layout = QHBoxLayout(self)
 
-        left = self.widgets["left"] = interface.MovImgWidget()
-
-        image = self.widgets["image"] = left.image_section
+        image = self.widgets["image"] = QLabel()
         image.setScaledContents(True)
         self.set_image()
 
@@ -67,11 +65,11 @@ class YTWindow(QWidget):
         right_layout.addWidget(scroll_area)
         right_layout.addWidget(action_bar)
 
-        layout.addWidget(left)
+        layout.addWidget(image)
         layout.addWidget(right)
         
-        self.widgets["left"].setFixedWidth(self.width()//2-1)
-        self.widgets["left"].setFixedHeight(self.width()//2-1)
+        self.widgets["image"].setFixedWidth(self.width()//2-1)
+        self.widgets["image"].setFixedHeight(self.width()//2-1)
         
         self.tab_switch(0)
 
@@ -81,9 +79,9 @@ class YTWindow(QWidget):
         self.widgets["left"].setFixedWidth(event.size().width()//2)
         self.widgets["left"].setFixedHeight(event.size().width()//2)
         """
-        self.widgets["right"].setMaximumWidth(event.size().width() - self.widgets["left"].width())
-        self.widgets["scroll_area"].setMaximumWidth(event.size().width() - self.widgets["left"].width())
-        #self.widgets["scroll_area_widget"].setMaximumWidth(event.size().width() - self.widgets["left"].width())
+        self.widgets["right"].setMaximumWidth(event.size().width() - self.widgets["image"].width())
+        self.widgets["scroll_area"].setMaximumWidth(event.size().width() - self.widgets["image"].width())
+        #self.widgets["scroll_area_widget"].setMaximumWidth(event.size().width() - self.widgets["image"].width())
         self.widgets["scroll_area_widget"].resizeEvent(event)
     def set_image(self, image_path=""):
         if image_path == "":
@@ -96,8 +94,46 @@ class YTWindow(QWidget):
     
     def set_attribute(self, attribute, val):
         self.attributes[attribute] = val
+        
+    def update_image(self):
+        for i in os.listdir("img"):
+            os.remove(f"img/{i}")
 
+        self.attributes["plot"].save("img/")
+        image = os.listdir("img")[0]
 
+        self.widgets["image"].setPixmap(QtGui.QPixmap(f"img/{image}"))
+
+    @QtCore.Slot()
+    def move_up(self):
+        self.attributes["plot"].pan_rel((0,-0.1))
+        self.update_image()
+
+    @QtCore.Slot()
+    def move_down(self):
+        self.attributes["plot"].pan_rel((0,0.1))
+        self.update_image()
+
+    @QtCore.Slot()
+    def move_left(self):
+        self.attributes["plot"].pan_rel((-0.1,0))
+        self.update_image()
+
+    @QtCore.Slot()
+    def move_right(self):
+        self.attributes["plot"].pan_rel((0.1,0))
+        self.update_image()
+
+    @QtCore.Slot()
+    def zoom_in(self):
+        self.attributes["plot"].zoom(2.0)
+        self.update_image()
+
+    @QtCore.Slot()
+    def zoom_out(self):
+        self.attributes["plot"].zoom(0.5)
+        self.update_image()
+ 
     @QtCore.Slot()
     def tab_switch(self, i):
         scroll_area = self.widgets["scroll_area"]
@@ -115,6 +151,12 @@ class YTWindow(QWidget):
 
             case 1:
                 plot_editor = self.widgets["scroll_area_widget"] = PlotEditorPanel(self)
+                plot_editor.dir_btns['up'].clicked.connect(self.move_down)
+                plot_editor.dir_btns['down'].clicked.connect(self.move_up)
+                plot_editor.dir_btns['left'].clicked.connect(self.move_left)
+                plot_editor.dir_btns['right'].clicked.connect(self.move_right)
+                plot_editor.dir_btns['in'].clicked.connect(self.zoom_in)
+                plot_editor.dir_btns['out'].clicked.connect(self.zoom_out)
                 self.widgets["scroll_area"].setWidget(plot_editor)
                 pb = self.widgets["plot_button"]
                 try:
@@ -129,16 +171,16 @@ class YTWindow(QWidget):
     @QtCore.Slot()
     def plot(self):
         if self.get_attribute("data_source") != None:
-    		#TODO change image in init to image_section
-            image_section = self.widgets["left"]
-            image_section.plot = yt.ProjectionPlot(self.get_attribute("data_source"),self.get_attribute("direction"), self.get_attribute("field"))
-            image_section.update_image()
+            #TODO change image in init to image_section
+            image_section = self.widgets["image"]
+            plot = self.attributes["plot"] = yt.ProjectionPlot(self.get_attribute("data_source"),self.get_attribute("direction"), self.get_attribute("field"))
+            self.update_image()
             """plot_maker = self.widgets["scroll_area_widget"]
             plot_maker.update_fields()
             temp = yt.SlicePlot(self.get_attribute("data_source"), self.get_attribute("direction"), self.get_attribute("field"))
             temp.save(self.get_attribute("image_path"))
             self.set_image(self.get_attribute("image_path"))"""
-    		
+            
 
     @QtCore.Slot()
     def open_file_dialog(self):
@@ -194,12 +236,33 @@ class PlotMakerPanel(QWidget):
 
 class PlotEditorPanel(QWidget):
     def __init__(self, parent):
-        super().__init__(self)
+        super().__init__()
         self.parent = parent
         self.__init_layout__()
 
     def __init_layout__(self):
-        pass
+        self.layout = QVBoxLayout(self)
+        #zoom and pan section
+        self.controls_section = QWidget()
+        self.dir_btns = {}
+        self.controls_layout = QVBoxLayout(self.controls_section)
+
+        self.three_box1 = QWidget()
+        self.three_layout1 = QHBoxLayout(self.three_box1)
+        for i in ['up','left','right']:
+            self.dir_btns[i] = QPushButton(i)
+            self.three_layout1.addWidget(self.dir_btns[i])
+        self.controls_layout.addWidget(self.three_box1)
+
+        self.three_box2 = QWidget()
+        self.three_layout2 = QHBoxLayout(self.three_box2)
+        for i in ['down','in','out']:  
+            self.dir_btns[i] = QPushButton(i)
+            self.three_layout2.addWidget(self.dir_btns[i])
+        self.controls_layout.addWidget(self.three_box2)
+        
+
+        self.layout.addWidget(self.controls_section)
 
     @QtCore.Slot()
     def update_fields():

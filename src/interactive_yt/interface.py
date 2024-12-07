@@ -7,10 +7,10 @@ from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QA
 class MovImgWidget(QWidget):
 	def __init__(self):
 		super().__init__()
-		self.dir_btns = {}
+		#self.dir_btns = {}
 		self.layout = QVBoxLayout(self)
 		self.image_section = QLabel()
-		self.controls_section = QWidget()
+		"""self.controls_section = QWidget()
 		self.controls_layout = QVBoxLayout(self.controls_section)
 
 		self.three_box1 = QWidget()
@@ -34,7 +34,7 @@ class MovImgWidget(QWidget):
 		self.dir_btns['in'].clicked.connect(self.zoom_in)
 		self.dir_btns['out'].clicked.connect(self.zoom_out)
 
-		self.layout.addWidget(self.image_section)
+		self.layout.addWidget(self.image_section)"""
 		self.layout.addWidget(self.controls_section)
 
 	def update_image(self):
