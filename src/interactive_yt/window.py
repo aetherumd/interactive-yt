@@ -4,7 +4,6 @@ from PySide6.QtWidgets import *
 from PySide6.QtGui import QPixmap, QImage
 import os, sys, yt
 from enum import Enum
-from interactive_yt import interface
 
 class YTWindow(QWidget):
     def __init__(self):
