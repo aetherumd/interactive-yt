@@ -52,8 +52,8 @@ class YTWindow(QWidget):
 
         pmp = self.widgets["pmp"] = PlotMakerPanel(self)
         pep = self.widgets["pep"] = PlotEditorPanel(self)
-		#this part was in the tab switch section, goes here now since we don't create a new
-		#plot editor/plot maker on every switch
+        #this part was in the tab switch section, goes here now since we don't create a new
+        #plot editor/plot maker on every switch
         
         scroll_area_widget = self.widgets["scroll_area_widget"] = pmp
         scroll_area.setWidget(scroll_area_widget)
@@ -181,10 +181,9 @@ class YTWindow(QWidget):
     @QtCore.Slot()
     def plot(self):
         if self.get_attribute("data_source") != None:
-<<<<<<< HEAD:src/interactive_yt/window.py
             #TODO change image in init to image_section
             image_section = self.widgets["image"]
-            plot = None
+            plot = self.attributes["plot"] = None
             match self.get_attribute("plot_type"):
                 case PlotOption.SLICE_PLOT:
                     plot = yt.SlicePlot(self.get_attribute("data_source"), self.get_attribute("direction"), self.get_attribute("field"))
@@ -192,14 +191,8 @@ class YTWindow(QWidget):
                     plot = yt.ParticlePlot(self.get_attribute("data_source"))
                 case PlotOption.PROJECTION_PLOT:
                     plot = yt.ProjectionPlot(self.get_attribute("data_source"), self.get_attribute("direction"), self.get_attribute("field"))
+            self.attributes["plot"] = plot
             self.update_image()
-            """plot_maker = self.widgets["scroll_area_widget"]
-            plot_maker.update_fields()
-            plot = yt.SlicePlot(self.get_attribute("data_source"), self.get_attribute("direction"), self.get_attribute("field"))"""
-=======
-            plot_maker = self.widgets["scroll_area_widget"]
-            plot_maker.update_fields()
->>>>>>> remotes/origin/plot_maker:src/window.py
             
 
     @QtCore.Slot()
@@ -353,12 +346,12 @@ class PlotEditorPanel(QWidget):
 
         self.layout.addWidget(self.controls_section)
 
-		self.dir_btns['up'].clicked.connect(self.parent.move_down)
-		self.dir_btns['down'].clicked.connect(self.parent.move_up)
-		self.dir_btns['left'].clicked.connect(self.parent.move_left)
-		self.dir_btns['right'].clicked.connect(self.parent.move_right)
-		self.dir_btns['in'].clicked.connect(self.parent.zoom_in)
-		self.dir_btns['out'].clicked.connect(self.parent.zoom_out)
+        self.dir_btns['up'].clicked.connect(self.parent.move_down)
+        self.dir_btns['down'].clicked.connect(self.parent.move_up)
+        self.dir_btns['left'].clicked.connect(self.parent.move_left)
+        self.dir_btns['right'].clicked.connect(self.parent.move_right)
+        self.dir_btns['in'].clicked.connect(self.parent.zoom_in)
+        self.dir_btns['out'].clicked.connect(self.parent.zoom_out)
 
     @QtCore.Slot()
     def update_fields():
