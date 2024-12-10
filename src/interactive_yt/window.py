@@ -4,6 +4,7 @@ from PySide6.QtWidgets import *
 from PySide6.QtGui import QPixmap, QImage
 import os, sys, yt
 from enum import Enum
+import numpy as np
 
 class YTWindow(QWidget):
     def __init__(self):
@@ -16,12 +17,12 @@ class YTWindow(QWidget):
         self.attributes = {
             "sliceplot": True, # True -> slice plot, False -> projection plot 
             "direction": [1,0,0],
-            "width": 100, 
+            "width": 400,
             "data_source": None,
             "ds_fields": [],
             "ds_center": (0,0,0),
-            "field": [("ramses", "HeII")],
-            "image_path": "tmp.png",
+            "field": [("ramses", "xHeII")],
+            "image_path": "./img/tmp.png",
             "plot_type": PlotOption.SLICE_PLOT,
             "ds_field_x": None,
             "ds_field_y": None,
@@ -105,6 +106,9 @@ class YTWindow(QWidget):
         self.attributes[attribute] = val
         
     def update_image(self):
+        if not os.path.exists("img"):
+            os.mkdir("img")
+
         for i in os.listdir("img"):
             os.remove(f"img/{i}")
 
@@ -149,7 +153,6 @@ class YTWindow(QWidget):
         match i:
             case 0:#plot maker
                 plot_maker = self.widgets["scroll_area_widget"] = self.widgets["pmp"]
-                print(type(plot_maker))
                 if type(scroll_area.widget()) == PlotEditorPanel:
                     self.widgets["pep"] = scroll_area.takeWidget()
                     scroll_area.setWidget(plot_maker)
@@ -163,8 +166,6 @@ class YTWindow(QWidget):
 
             case 1:#plot editor
                 plot_editor = self.widgets["scroll_area_widget"] = self.widgets["pep"]
-                print(type(plot_editor))
-                print(type(scroll_area.widget()))
                 if type(scroll_area.widget()) == PlotMakerPanel:
                     self.widgets["pmp"] = scroll_area.takeWidget()
                     scroll_area.setWidget(plot_editor)
@@ -178,31 +179,64 @@ class YTWindow(QWidget):
 
 
     @QtCore.Slot()
-    def plot(self):
-        if self.get_attribute("data_source") != None:
+    def plot(self, default = True):
+        ds = self.get_attribute("data_source")
+        if ds is not None:
             #TODO change image in init to image_section
             image_section = self.widgets["image"]
             plot = self.attributes["plot"] = None
+            if default:
+                ad = ds.all_data()
+                self.set_attribute("ds_center", [np.mean(np.array(ad["star", "particle_position_x"])),
+                                                         np.mean(np.array(ad["star", "particle_position_y"])),
+                                                        np.mean(np.array(ad["star", "particle_position_z"]))
+                                                 ])
+                print(self.get_attribute("ds_center"))
+                print(self.get_attribute("width"))
+
             match self.get_attribute("plot_type"):
                 case PlotOption.SLICE_PLOT:
-                    plot = yt.SlicePlot(self.get_attribute("data_source"), self.get_attribute("direction"), self.get_attribute("field"))
+                    plot = yt.SlicePlot(ds, self.get_attribute("direction"), self.get_attribute("field"), center = self.get_attribute("ds_center"), width = (self.get_attribute("width"), "pc"))
                 case PlotOption.PARTICLE_PLOT:
-                    plot = yt.ParticlePlot(self.get_attribute("data_source"))
+                    plot = yt.ParticlePlot(ds)
                 case PlotOption.PROJECTION_PLOT:
-                    plot = yt.ProjectionPlot(self.get_attribute("data_source"), self.get_attribute("direction"), self.get_attribute("field"))
+                    # implement how to select a data source later on
+                    plot = yt.ProjectionPlot(ds, self.get_attribute("direction"), self.get_attribute("field"), center = self.get_attribute("ds_center"), width = (self.get_attribute("width"), "pc"))
             self.attributes["plot"] = plot
             self.update_image()
             
 
     @QtCore.Slot()
-    def open_file_dialog(self):
+    def open_file_dialog(self, dud = None, cell_fields: list = None, epf: list = None):
+        if cell_fields is None:
+            cell_fields = [
+                "Density",
+                "x-velocity",
+                "y-velocity",
+                "z-velocity",
+                "Pressure",
+                "Metallicity",
+                # "dark_matter_density",
+                "xHI",
+                "xHII",
+                "xHeII",
+                "xHeIII",
+            ]
+        if epf is None:
+            epf = [
+                ("particle_family", "b"),
+                ("particle_tag", "b"),
+                ("particle_birth_epoch", "d"),
+                ("particle_metallicity", "d"),
+            ]
+
         f = FileDialog()
         f.exec()
         s = f.filesSelected()[0]
-        if (s != None):
-            ds = yt.load(s)
+        if s is not None:
+            ds = yt.load(s, fields = cell_fields, extra_particle_fields = epf)
             self.set_attribute("data_source", ds)
-            self.set_attribute("ds_fields", ds.field_list)
+            self.set_attribute("ds_fields", ds.derived_field_list)
             self.widgets["scroll_area_widget"].refresh()
 
 class FileDialog(QFileDialog):
