@@ -20,6 +20,16 @@ PlotType = Union[
 ]
 
 class QAdjustable(QWidget):
+    """
+    Inheritable class for interactive_yt widgets.
+
+    Has built-in child widget management, and stores widgets regardless if they
+    are used. This functionality is necessary for how we are handling switching
+    tabs (I believe).
+
+    TODO: 
+        add resizing
+    """
     def __init__(self):
         super().__init__()
         self.widgets: dict[QWidget] = dict()
@@ -32,6 +42,11 @@ class QAdjustable(QWidget):
         return self.widgets[name]
 
 class YtWindow(QAdjustable):
+    """
+    Frontend handler.
+
+    Contains top-level widgets, leaves information processing to its children.
+    """
     def __init__(self):
         super().__init__()
         self.broker = EventBroker()
@@ -75,6 +90,14 @@ class YtWindow(QAdjustable):
         self.widgets["right"].setMaximumWidth(event.size().width() - self.widgets["left"].width())
 
 class ImagePanel(Subscriber, QAdjustable):
+    """
+    Renders the user-created image.
+
+    Subscribed to Data.IMAGE, writes new image to screen.
+
+    TODO: 
+        add a plot history option? maybe should be its own class
+    """
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         QAdjustable.__init__(self)
@@ -98,6 +121,19 @@ class ImagePanel(Subscriber, QAdjustable):
         self.get_widget("image").setPixmap(QPixmap.fromImage(img))
 
 class PlotMaker(Subscriber, Publisher):
+    """
+    Backend element responsible for making plots.
+
+    Subscribed to UserAction.CREATE_PLOT, creates new plot based on user-selected
+    arguments.
+
+    TODO: 
+        It is possible to consolidate create_slice_plot() and create_projection_plot().
+        Not sure if we want to do so.
+        
+        Not sure if its possible to do particle_plot as well as its a method not a constructor.
+        Something to look into.
+    """
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.subscribe([UserAction.CREATE_PLOT])
@@ -220,6 +256,14 @@ class PlotMaker(Subscriber, Publisher):
         return False
 
 class PlotManager(Subscriber, Publisher):
+    """
+    Backend element responsible for handling user-input plot manipulation.
+
+    TODO:
+        Do we need to handle particle phase plots? If yes, what are they good for.
+
+        Add functionality for annotations.
+    """
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.activated = False
@@ -269,7 +313,6 @@ class PlotManager(Subscriber, Publisher):
                                 plot.flip_vertical()
                             case UserAction.SWAP_AXES:
                                 plot.swap_axes()
-                            # TODO: add functionality for annotations
                             case _:
                                 pass
                         path: str = self.query(PlotOption.SAVE_TO)
@@ -281,13 +324,18 @@ class PlotManager(Subscriber, Publisher):
                     match name:
                         case UserAction.IMG_UNIT:
                             phase_plot.set_unit(data)
-                        # TODO: add functionality for annotations
                         case _:
                             pass
                 case _:
                     pass
 
 class MakePlotPanel(Publisher, QAdjustable):
+    """
+    Gives options related to plot creation, depending on selected plot type.
+
+    TODO:
+        Implement functionality for options in options.PlotOption
+    """
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         QAdjustable.__init__(self)
@@ -301,6 +349,12 @@ class MakePlotPanel(Publisher, QAdjustable):
         layout = QHBoxLayout(self)
 
 class SliceProjectionPlotPanel(Publisher, QAdjustable):
+    """
+    Gives options related to slice & projection plot creation.
+
+    TODO:
+        Implement functionality for options in options.SliceProjPlotOption
+    """
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         QAdjustable.__init__(self)
@@ -314,6 +368,12 @@ class SliceProjectionPlotPanel(Publisher, QAdjustable):
         layout = QHBoxLayout(self)
 
 class ParticlePlotPanel(Publisher, QAdjustable):
+    """
+    Gives options related to particle plot creation.
+
+    TODO:
+        Implement functionality for options in options.ParticlePlotOption
+    """
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         QAdjustable.__init__(self)
@@ -327,6 +387,12 @@ class ParticlePlotPanel(Publisher, QAdjustable):
         layout = QHBoxLayout(self)
 
 class EditPlotPanel(Publisher, QAdjustable):
+    """
+    Gives options related to editing plots.
+
+    TODO:
+        Implement functionality for options in options.UserAction except for CREATE_PLOT
+    """
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         QAdjustable.__init__(self)
@@ -340,9 +406,14 @@ class EditPlotPanel(Publisher, QAdjustable):
         layout = QHBoxLayout(self)
 
 class Test(Publisher):
+    """
+    Testing basic functionality.
+
+    To use, make sure that PATH is set to the desired dataset.
+    """
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        ds = yt.load("C:\\Users\\jonat\\PycharmProjects\\gems\\review\\ricotti_simulation\\output_00273")
+        ds = yt.load("PATH")
         self.add_field(PlotOption.DATASET)
         self.add_field(SliceProjPlotOption.FIELDS)
         
@@ -356,7 +427,6 @@ class Test(Publisher):
 
         self.publish(UserAction.ZOOM, 10)
         print("done")
-        # kinda works !
 
 if __name__ == "__main__":
     app = QtWidgets.QApplication([])
