@@ -2,215 +2,371 @@ from PySide6 import QtCore, QtWidgets, QtGui
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import *
 from PySide6.QtGui import QPixmap, QImage
-import os, sys, yt
+import sys, yt, typing
 from enum import Enum
+from typing import *
+from options import *
+import yt.data_objects
+import yt.data_objects.static_output
+from info_handling import EventBroker, Publisher, Subscriber
 
-class YTWindow(QWidget):
+"""
+biggest problems atm:
+strings as keys are inconsistent at best, maybe try enums?
+layouts
+"""
+
+PlotType = Union[ 
+    yt.AxisAlignedSlicePlot,
+    yt.OffAxisSlicePlot,
+    yt.AxisAlignedProjectionPlot,
+    yt.OffAxisProjectionPlot,
+    yt.ParticleProjectionPlot,
+    yt.ParticlePhasePlot
+]
+
+class QAdjustable(QWidget):
     def __init__(self):
         super().__init__()
+        self.widgets: dict[QWidget] = dict()
 
-        self.__init_attributes__()
+    def add_widget(self, name: str, w: QWidget) -> QWidget:
+        self.widgets[name] = w
+        return w
+
+    def get_widget(self, name: str) -> QWidget:
+        return self.widgets[name]
+
+class YtWindow(QAdjustable):
+    def __init__(self):
+        super().__init__()
+        self.broker = EventBroker()
         self.__init_layout__()
 
-    def __init_attributes__(self):
-        self.attributes = {
-            "sliceplot": True, # True -> slice plot, False -> projection plot 
-            "direction": [1,0,0],
-            "width": 100, 
-            "data_source": None,
-            "ds_fields": [],
-            "ds_center": (0,0,0),
-            "field": [("ramses", "HeII")],
-            "image_path": "tmp.png",
-        }
-
     def __init_layout__(self):
-        self.widgets = {}
         layout = QHBoxLayout(self)
 
-        left = self.widgets["left"] = QWidget()
+        left = self.add_widget("left", QWidget())
+        right = self.add_widget("right", QWidget())
+
         left_layout = QVBoxLayout(left)
-
-        image = self.widgets["image"] = QLabel()
-        image.setScaledContents(True)
-        self.set_image()
-
-        right = self.widgets["right"] = QWidget()
         right_layout = QVBoxLayout(right)
 
-        tab_menu = self.widgets["tab_menu"] = QTabBar()
-        
-        tab_menu.addTab("make plot")
-        tab_menu.addTab("edit plot")
+        img_pane = self.add_widget("img_pane", ImagePanel(self.broker))
+        make_plot_pane = self.add_widget("make_plot_panel", MakePlotPanel(self.broker))
+        edit_plot_pane = self.add_widget("edit_plot_panel", EditPlotPanel(self.broker))
+        self.plot_maker = PlotMaker(self.broker)
+        self.plot_manager = PlotManager(self.broker)
 
-        tab_menu.tabBarClicked.connect(self.tab_switch)
-
-        scroll_area = self.widgets["scroll_area"] = QScrollArea()
-        scroll_area.setWidgetResizable(True)
-
-        scroll_area_widget = self.widgets["scroll_area_widget"] = PlotMakerPanel(self)
-        scroll_area.setWidget(scroll_area_widget)
-
-        action_bar = self.widgets["action_bar"] = QWidget()
-        action_bar_layout = QHBoxLayout(action_bar)
-
-        plot_button = self.widgets["plot_button"] = QPushButton("plot")
-        plot_button.clicked.connect(self.plot)
-        
-        file_select = self.widgets["file_select"] = QPushButton("select file")
-        file_select.clicked.connect(self.open_file_dialog)
-
-        action_bar_layout.addWidget(plot_button)
-        action_bar_layout.addWidget(file_select)
-
-        left_layout.addWidget(image)
-
-        right_layout.addWidget(tab_menu)
-        right_layout.addWidget(scroll_area)
-        right_layout.addWidget(action_bar)
+        left_layout.addWidget(img_pane)
+        right_layout.addWidget(make_plot_pane)
+        right_layout.addWidget(edit_plot_pane)
 
         layout.addWidget(left)
         layout.addWidget(right)
-        
+
+        self.broker.publish(Data.IMAGE, QImage("tmp.png"))
+        ##test = Test(self.broker)
+
         self.widgets["left"].setFixedWidth(self.width()//2-1)
         self.widgets["left"].setFixedHeight(self.width()//2-1)
-        
-        self.tab_switch(0)
-
+    
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        """
+        
         self.widgets["left"].setFixedWidth(event.size().width()//2)
         self.widgets["left"].setFixedHeight(event.size().width()//2)
-        """
+        
         self.widgets["right"].setMaximumWidth(event.size().width() - self.widgets["left"].width())
-        self.widgets["scroll_area"].setMaximumWidth(event.size().width() - self.widgets["left"].width())
-        #self.widgets["scroll_area_widget"].setMaximumWidth(event.size().width() - self.widgets["left"].width())
-        self.widgets["scroll_area_widget"].resizeEvent(event)
-    def set_image(self, image_path=""):
-        if image_path == "":
-            self.widgets["image"].setPixmap(QPixmap.fromImage(QImage(self.get_attribute("image_path"))))
-        else:
-            self.widgets["image"].setPixmap(QPixmap.fromImage(QImage(image_path)))
 
-    def get_attribute(self, attribute):
-        return self.attributes.get(attribute)
-    
-    def set_attribute(self, attribute, val):
-        self.attributes[attribute] = val
-
-
-    @QtCore.Slot()
-    def tab_switch(self, i):
-        scroll_area = self.widgets["scroll_area"]
-        match i:
-            case 0:
-                plot_maker = self.widgets["scroll_area_widget"] = PlotMakerPanel(self)
-                self.widgets["scroll_area"].setWidget(plot_maker)
-                pb = self.widgets["plot_button"]
-                try:
-                    pb.clicked.disconnect()
-                    pb.clicked.connect(plot_maker.update_fields)
-                    pb.clicked.connect(self.plot)
-                except:
-                    print("plot_button connect failed")
-
-            case 1:
-                plot_editor = self.widgets["scroll_area_widget"] = PlotEditorPanel(self)
-                self.widgets["scroll_area"].setWidget(plot_editor)
-                pb = self.widgets["plot_button"]
-                try:
-                    pb.clicked.disconnect()
-                    pb.clicked.connect(plot_editor.update_fields)
-                    pb.clicked.connect(self.plot)
-                    
-                except:
-                    print("plot_button connect failed")
-
-
-    @QtCore.Slot()
-    def plot(self):
-        if self.get_attribute("data_source") != None:
-            plot_maker = self.widgets["scroll_area_widget"]
-            plot_maker.update_fields()
-            temp = yt.SlicePlot(self.get_attribute("data_source"), self.get_attribute("direction"), self.get_attribute("field"))
-            temp.save(self.get_attribute("image_path"))
-            self.set_image(self.get_attribute("image_path"))
-
-    @QtCore.Slot()
-    def open_file_dialog(self):
-        f = FileDialog()
-        f.exec()
-        s = f.filesSelected()[0]
-        if (s != None):
-            ds = yt.load(s)
-            self.set_attribute("data_source", ds)
-            self.set_attribute("ds_fields", ds.field_list)
-            self.widgets["scroll_area_widget"].refresh()
-
-class FileDialog(QFileDialog):
-    def __init__(self, *args):
-        QFileDialog.__init__(self, *args)
-        self.setOption(QFileDialog.DontUseNativeDialog, True)
-        self.setFileMode(QFileDialog.ExistingFiles)
-        btns = self.findChildren(QPushButton)
-        self.openBtn = [x for x in btns if 'open' in str(x.text()).lower()][0]
-        self.openBtn.clicked.disconnect()
-        self.openBtn.clicked.connect(self.openClicked)
-        self.tree = self.findChild(QTreeView)
-
-    def openClicked(self):
-        inds = self.tree.selectionModel().selectedIndexes()
-        files = []
-        for i in inds:
-            if i.column() == 0:
-                files.append(os.path.join(str(self.directory().absolutePath()),str(i.data())))
-                print(files)
-        self.selectedFiles = files
-        self.hide()
-
-    def filesSelected(self):
-        return self.selectedFiles
-    
-class PlotMakerPanel(QWidget):
-    def __init__(self, parent):
-        super().__init__()
-        self.parent = parent
-        self.__init_layout__()
-    
-    def __init_layout__(self):
-        self.widgets = {}
-    
-    @QtCore.Slot()
-    def update_fields(self):
-        pass
-
-    @QtCore.Slot()
-    def refresh(self):
-        pass
-
-class PlotEditorPanel(QWidget):
-    def __init__(self, parent):
-        super().__init__(self)
-        self.parent = parent
+class ImagePanel(Subscriber, QAdjustable):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        QAdjustable.__init__(self)
+        self.subscribe([Data.IMAGE])
         self.__init_layout__()
 
     def __init_layout__(self):
-        pass
-
-    @QtCore.Slot()
-    def update_fields():
-        pass
+        layout = QHBoxLayout(self)
+        image = self.add_widget("image", QLabel(self))
+        image.setScaledContents(True)
+        layout.addWidget(image)
     
-    @QtCore.Slot()
-    def refresh(self):
-        pass
+    def handle_update(self, name: str):
+        match name:
+            case Data.IMAGE:
+                self.set_img(self.query(name))
+            case _:
+                pass
+    
+    def set_img(self, img: QImage):
+        self.get_widget("image").setPixmap(QPixmap.fromImage(img))
 
+class PlotMaker(Subscriber, Publisher):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.subscribe([UserAction.CREATE_PLOT])
+        
+        for op in Data:
+            self.add_field(op)
+
+    def handle_update(self, name: V3Option):
+        match name:
+            case UserAction.CREATE_PLOT:
+                success: bool = False
+                match self.query(PlotOption.PLOT_TYPE):
+                    case PlotTypeOption.SLICE_PLOT:
+                        success = self.create_slice_plot()
+                    case PlotTypeOption.PROJECTION_PLOT:
+                        success = self.create_projection_plot()
+                    case PlotTypeOption.PARTICLE_PLOT:
+                        success = self.create_particle_plot()
+                    case _:
+                        pass
+                if success:
+                    plot : PlotType = self.query(Data.PLOT)
+                    if plot is not None:
+                        path: str = self.query(PlotOption.SAVE_TO)
+                        plot.save(path)
+                        self.publish(Data.IMAGE, QImage(path))
+            case _:
+                pass
+
+    def create_slice_plot(self):
+        ds = self.query(PlotOption.DATASET)
+        normal = self.query(SliceProjPlotOption.NORMAL)
+        fields = self.query(SliceProjPlotOption.FIELDS)
+        if ds is not None and normal is not None and fields is not None:
+            params = {
+                "center": self.query(PlotOption.CENTER),
+                "width": self.query(PlotOption.WIDTH),
+                "axes_unit": self.query(PlotOption.AXES_UNIT),
+                "origin": self.query(PlotOption.ORIGIN),
+                "fontsize": self.query(PlotOption.FONT_SIZE),
+                "field_parameters": self.query(PlotOption.FIELD_PARAMETERS),
+                "window_size": self.query(PlotOption.WINDOW_SIZE),
+                "aspect": self.query(PlotOption.ASPECT),
+                "data_source": self.query(PlotOption.DATA_SOURCE),
+                "buff_size": self.query(PlotOption.BUFF_SIZE),
+            }
+            print(params)
+            
+            existing_params = {key: value for key, value in params.items() if value is not None}
+            plot = yt.SlicePlot(
+                ds, normal, fields, **existing_params 
+            )
+            self.publish(Data.PLOT, plot)
+            return True
+        return False
+
+    def create_projection_plot(self):
+        ds = self.query(PlotOption.DATASET)
+        normal = self.query(SliceProjPlotOption.NORMAL)
+        fields = self.query(SliceProjPlotOption.FIELDS)
+        if ds is not None and normal is not None and fields is not None:
+            params = {
+                "center": self.query(PlotOption.CENTER),
+                "width": self.query(PlotOption.WIDTH),
+                "axes_unit": self.query(PlotOption.AXES_UNIT),
+                "origin": self.query(PlotOption.ORIGIN),
+                "fontsize": self.query(PlotOption.FONT_SIZE),
+                "field_parameters": self.query(PlotOption.FIELD_PARAMETERS),
+                "window_size": self.query(PlotOption.WINDOW_SIZE),
+                "aspect": self.query(PlotOption.ASPECT),
+                "data_source": self.query(PlotOption.DATA_SOURCE),
+                "buff_size": self.query(PlotOption.BUFF_SIZE),
+            }
+
+
+            existing_params = {key: value for key, value in params.items() if value is not None}
+
+            plot = yt.ProjectionPlot(
+                ds, normal, fields, **existing_params
+            )
+
+            self.publish(Data.PLOT, plot)
+            return True
+        return False
+
+    def create_particle_plot(self):
+        ds = self.query(PlotOption.DATASET)
+        x_field = self.query(ParticlePlotOption.X_FIELD)
+        y_field = self.query(ParticlePlotOption.Y_FIELD)
+        
+        if ds is not None and x_field is not None and y_field is not None:
+
+            params = {
+                "z_fields": self.query(ParticlePlotOption.Z_FIELDS),
+                "color": self.query(ParticlePlotOption.COLOR),
+                "weight_field": self.query(PlotOption.WEIGHT_FIELD),
+                "fontsize": self.query(PlotOption.FONT_SIZE),
+                "data_source": self.query(PlotOption.DATA_SOURCE),
+                "center": self.query(PlotOption.CENTER),
+                "width": self.query(PlotOption.WIDTH),
+                "depth": self.query(ParticlePlotOption.DEPTH),
+                "axes_unit": self.query(PlotOption.AXES_UNIT),
+                "origin": self.query(PlotOption.ORIGIN),
+                "window_size": self.query(PlotOption.WINDOW_SIZE),
+                "aspect": self.query(PlotOption.ASPECT),
+                "x_bins": self.query(ParticlePlotOption.X_BINS),
+                "y_bins": self.query(ParticlePlotOption.Y_BINS),
+                "deposition": self.query(ParticlePlotOption.DEPOSITION),
+                "figure_size": self.query(ParticlePlotOption.FIGURE_SIZE),
+            }
+
+            existing_params = {key: value for key, value in params.items() if value is not None}
+
+            plot = yt.ParticlePlot(
+                ds, x_field, y_field, **existing_params
+            )
+            
+            self.publish(Data.PLOT, plot)
+            return True
+        return False
+
+class PlotManager(Subscriber, Publisher):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.activated = False
+        self.subscribe([Data.PLOT, 
+                        UserAction.PAN_X,
+                        UserAction.PAN_Y,
+                        UserAction.PAN_REL_X,
+                        UserAction.PAN_REL_Y,
+                        UserAction.ZOOM,
+                        UserAction.AXES_UNIT,
+                        UserAction.IMG_UNIT,
+                        UserAction.CENTER,
+                        UserAction.FLIP_HORIZONTAL,
+                        UserAction.FLIP_VERTICAL,
+                        UserAction.SWAP_AXES,
+                        ])
+
+    def handle_update(self, name: V3Option):
+        if not self.activated and name is Data.PLOT:
+            self.activated = True
+        if self.activated:
+            match self.query(PlotOption.PLOT_TYPE):
+                case PlotTypeOption.SLICE_PLOT | PlotTypeOption.PROJECTION_PLOT | PlotTypeOption.PARTICLE_PLOT:
+                    plot: PlotType = self.query(Data.PLOT)
+                    data = self.query(name)
+                    if plot is not None and data is not None:
+                        match name:
+                            case UserAction.PAN_X:
+                                plot.pan((data, 0))
+                            case UserAction.PAN_Y:
+                                plot.pan((0, data))
+                            case UserAction.PAN_REL_X:
+                                plot.pan_rel((data, 0))
+                            case UserAction.PAN_REL_Y:
+                                plot.pan_rel((0, data))
+                            case UserAction.ZOOM:
+                                plot.zoom(data)
+                            case UserAction.AXES_UNIT:
+                                plot.set_axes_unit(data)
+                            case UserAction.IMG_UNIT:
+                                plot.set_unit(data)
+                            case UserAction.CENTER:
+                                plot.set_center(data)
+                            case UserAction.FLIP_HORIZONTAL:
+                                plot.flip_horizontal()
+                            case UserAction.FLIP_VERTICAL:
+                                plot.flip_vertical()
+                            case UserAction.SWAP_AXES:
+                                plot.swap_axes()
+                            # TODO: add functionality for annotations
+                            case _:
+                                pass
+                        path: str = self.query(PlotOption.SAVE_TO)
+                        plot.save(path)
+                        self.publish(Data.IMAGE, QImage(path))
+                case PlotTypeOption.PARTICLE_PHASE_PLOT:
+                    phase_plot: yt.ParticlePhasePlot = self.query(PlotOption.PLOT_TYPE)
+                    data = self.query(name)
+                    match name:
+                        case UserAction.IMG_UNIT:
+                            phase_plot.set_unit(data)
+                        # TODO: add functionality for annotations
+                        case _:
+                            pass
+                case _:
+                    pass
+
+class MakePlotPanel(Publisher, QAdjustable):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        QAdjustable.__init__(self)
+
+        for op in PlotOption:
+            self.add_field(op)
+        
+        self.__init_layout__()
+
+    def __init_layout__(self):
+        layout = QHBoxLayout(self)
+
+class SliceProjectionPlotPanel(Publisher, QAdjustable):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        QAdjustable.__init__(self)
+
+        for op in SliceProjPlotOption:
+            self.add_field(op)
+
+        self.__init_layout__()
+
+    def __init_layout__(self):
+        layout = QHBoxLayout(self)
+
+class ParticlePlotPanel(Publisher, QAdjustable):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        QAdjustable.__init__(self)
+
+        for op in ParticlePlotOption:
+            self.add_field(op)
+
+        self.__init_layout__()
+
+    def __init_layout__(self):
+        layout = QHBoxLayout(self)
+
+class EditPlotPanel(Publisher, QAdjustable):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        QAdjustable.__init__(self)
+        
+        for op in UserAction:
+            self.add_field(op)
+
+        self.__init_layout__()
+
+    def __init_layout__(self):
+        layout = QHBoxLayout(self)
+
+class Test(Publisher):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        ds = yt.load("C:\\Users\\jonat\\PycharmProjects\\gems\\review\\ricotti_simulation\\output_00273")
+        self.add_field(PlotOption.DATASET)
+        self.add_field(SliceProjPlotOption.FIELDS)
+        
+        self.publish(PlotOption.DATASET, ds)
+        print("published dataset")
+        self.publish(SliceProjPlotOption.NORMAL, "x")
+        self.publish(SliceProjPlotOption.FIELDS, [("ramses", "HeII")])
+        print("published fields")
+        self.publish(UserAction.CREATE_PLOT, True)
+        print("created plot")
+
+        self.publish(UserAction.ZOOM, 10)
+        print("done")
+        # kinda works !
 
 if __name__ == "__main__":
     app = QtWidgets.QApplication([])
 
-    ytw = YTWindow()
+    ytw = YtWindow()
     ytw.resize(600,600)
     ytw.show()
 
