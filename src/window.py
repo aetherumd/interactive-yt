@@ -59,7 +59,8 @@ class YtWindow(QAdjustable):
         layout.addWidget(left)
         layout.addWidget(right)
 
-        self.broker.publish(Data.IMAGE, QImage("tmp.png"))
+        ## Testing code
+        ##self.broker.publish(Data.IMAGE, QImage("tmp.png"))
         ##test = Test(self.broker)
 
         self.widgets["left"].setFixedWidth(self.width()//2-1)
