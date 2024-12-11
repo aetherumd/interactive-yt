@@ -4,8 +4,8 @@ from PySide6.QtWidgets import *
 from PySide6.QtGui import QPixmap, QImage
 import sys, yt, typing
 from enum import Enum
-from typing import Any
-
+from typing import *
+from v_3_options import *
 import yt.data_objects
 import yt.data_objects.static_output
 from info_handling import EventBroker, Publisher, Subscriber
@@ -16,11 +16,14 @@ strings as keys are inconsistent at best, maybe try enums?
 layouts
 """
 
-class PlotOption(Enum):
-    SLICE_PLOT = 1,
-    PROJECTION_PLOT = 2,
-    PARTICLE_PLOT = 3,
-    PARTICLE_PHASE_PLOT = 4
+PlotType = Union[ 
+    yt.AxisAlignedSlicePlot,
+    yt.OffAxisSlicePlot,
+    yt.AxisAlignedProjectionPlot,
+    yt.OffAxisProjectionPlot,
+    yt.ParticleProjectionPlot,
+    yt.ParticlePhasePlot
+]
 
 class QAdjustable(QWidget):
     def __init__(self):
@@ -68,7 +71,7 @@ class ImagePanel(Subscriber, QAdjustable):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         QAdjustable.__init__(self)
-        self.subscribe(["img"])
+        self.subscribe([Data.IMAGE])
         self.__init_layout__()
 
     def __init_layout__(self):
@@ -78,8 +81,8 @@ class ImagePanel(Subscriber, QAdjustable):
     
     def handle_update(self, name: str):
         match name:
-            case "img":
-                self.set_img(self.query("img"))
+            case Data.IMAGE:
+                self.set_img(self.query(name))
             case _:
                 pass
     
@@ -89,115 +92,120 @@ class ImagePanel(Subscriber, QAdjustable):
 class PlotMaker(Subscriber, Publisher):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.subscribe(["create_plot"])
-        self.add_field("plot", None, None)
-        self.add_field("img", None, None)
+        self.subscribe([UserAction.CREATE_PLOT])
+        
+        for op in Data:
+            self.add_field(op)
 
-    def handle_update(self, name: str):
+    def handle_update(self, name: V3Option):
         match name:
-            case "create_plot":
+            case UserAction.CREATE_PLOT:
                 success: bool = False
-                match self.query("plot_type"):
-                    case PlotOption.SLICE_PLOT:
+                match self.query(PlotOption.PLOT_TYPE):
+                    case PlotTypeOption.SLICE_PLOT:
                         success = self.create_slice_plot()
-                    case PlotOption.PROJECTION_PLOT:
+                    case PlotTypeOption.PROJECTION_PLOT:
                         success = self.create_projection_plot()
-                    case PlotOption.PARTICLE_PLOT:
+                    case PlotTypeOption.PARTICLE_PLOT:
                         success = self.create_particle_plot()
                     case _:
                         pass
                 if success:
-                    plot : yt.AxisAlignedSlicePlot | yt.OffAxisSlicePlot | yt.AxisAlignedProjectionPlot |  yt.OffAxisProjectionPlot | yt.ParticleProjectionPlot | yt.ParticlePhasePlot = self.query("plot")
+                    plot : PlotType = self.query(Data.PLOT)
                     if plot is not None:
-                        path: str = self.query("img_name")
+                        path: str = self.query(PlotOption.SAVE_TO)
                         plot.save(path)
-                        self.publish("img", QImage(path))
+                        self.publish(Data.IMAGE, QImage(path))
             case _:
                 pass
 
     def create_slice_plot(self):
-        ds = self.query("dataset")
-        normal = self.query("normal")
-        fields = self.query("fields")
+        ds = self.query(PlotOption.DATASET)
+        normal = self.query(SliceProjPlotOption.NORMAL)
+        fields = self.query(SliceProjPlotOption.FIELDS)
         if ds is not None and normal is not None and fields is not None:
             params = {
-                "center": self.query("center", "center"),
-                "width": self.query("width", None),
-                "axes_unit": self.query("axes_unit", None),
-                "origin": self.query("origin", "center-window"),
-                "fontsize": self.query("fontsize", 18),
-                "field_parameters": self.query("field_parameters", None),
-                "window_size": self.query("windows_size", 8.0),
-                "aspect": self.query("aspect", None),
-                "data_source": self.query("data_source", None),
-                "buff_size": self.query("buff_size", (800, 800)),
+                "center": self.query(PlotOption.CENTER),
+                "width": self.query(PlotOption.WIDTH),
+                "axes_unit": self.query(PlotOption.AXES_UNIT),
+                "origin": self.query(PlotOption.ORIGIN),
+                "fontsize": self.query(PlotOption.FONT_SIZE),
+                "field_parameters": self.query(PlotOption.FIELD_PARAMETERS),
+                "window_size": self.query(PlotOption.WINDOW_SIZE),
+                "aspect": self.query(PlotOption.ASPECT),
+                "data_source": self.query(PlotOption.DATA_SOURCE),
+                "buff_size": self.query(PlotOption.BUFF_SIZE),
             }
-
-            # TODO fix query jank
-
+            
             existing_params = {key: value for key, value in params.items() if value is not None}
-
             plot = yt.SlicePlot(
                 ds, normal, fields, **existing_params 
             )
-            self.publish("plot", plot)
+            self.publish(Data.PLOT, plot)
             return True
         return False
 
     def create_projection_plot(self):
-        ds = self.query("dataset")
-        normal = self.query("normal")
-        fields = self.query("fields")
+        ds = self.query(PlotOption.DATASET)
+        normal = self.query(SliceProjPlotOption.NORMAL)
+        fields = self.query(SliceProjPlotOption.FIELDS)
         if ds is not None and normal is not None and fields is not None:
-            plot = yt.ProjectionPlot(
-                ds, normal, fields, 
-                center = self.query("center", "center"),
-                width = self.query("width", None),
-                axes_unit = self.query("axes_unit", None),
-                origin = self.query("origin", "center-window"),
-                fontsize = self.query("fontsize", 18),
-                field_parameters = self.query("field_parameters", None),
-                window_size = self.query("windows_size", 8.0),
-                aspect = self.query("aspect", None),
-                data_source = self.query("data_source", None),
-                buff_size = self.query("buff_size", (800, 800)),
-            )
-            
-            # TODO fix query jank
+            params = {
+                "center": self.query(PlotOption.CENTER),
+                "width": self.query(PlotOption.WIDTH),
+                "axes_unit": self.query(PlotOption.AXES_UNIT),
+                "origin": self.query(PlotOption.ORIGIN),
+                "fontsize": self.query(PlotOption.FONT_SIZE),
+                "field_parameters": self.query(PlotOption.FIELD_PARAMETERS),
+                "window_size": self.query(PlotOption.WINDOW_SIZE),
+                "aspect": self.query(PlotOption.ASPECT),
+                "data_source": self.query(PlotOption.DATA_SOURCE),
+                "buff_size": self.query(PlotOption.BUFF_SIZE),
+            }
 
-            self.publish("plot", plot)
+            existing_params = {key: value for key, value in params.items() if value is not None}
+
+            plot = yt.ProjectionPlot(
+                ds, normal, fields, **existing_params
+            )
+
+            self.publish(Data.PLOT, plot)
             return True
         return False
 
     def create_particle_plot(self):
-        ds = self.query("dataset")
-        field_x = self.query("normal")
-        field_y = self.query("fields")
+        ds = self.query(PlotOption.DATASET)
+        x_field = self.query(ParticlePlotOption.X_FIELD)
+        y_field = self.query(ParticlePlotOption.Y_FIELD)
         
-        if ds is not None and field_x is not None and field_y is not None:
+        if ds is not None and x_field is not None and y_field is not None:
+
+            params = {
+                "z_fields": self.query(ParticlePlotOption.Z_FIELDS),
+                "color": self.query(ParticlePlotOption.COLOR),
+                "weight_field": self.query(PlotOption.WEIGHT_FIELD),
+                "fontsize": self.query(PlotOption.FONT_SIZE),
+                "data_source": self.query(PlotOption.DATA_SOURCE),
+                "center": self.query(PlotOption.CENTER),
+                "width": self.query(PlotOption.WIDTH),
+                "depth": self.query(ParticlePlotOption.DEPTH),
+                "axes_unit": self.query(PlotOption.AXES_UNIT),
+                "origin": self.query(PlotOption.ORIGIN),
+                "window_size": self.query(PlotOption.WINDOW_SIZE),
+                "aspect": self.query(PlotOption.ASPECT),
+                "x_bins": self.query(ParticlePlotOption.X_BINS),
+                "y_bins": self.query(ParticlePlotOption.Y_BINS),
+                "deposition": self.query(ParticlePlotOption.DEPOSITION),
+                "figure_size": self.query(ParticlePlotOption.FIGURE_SIZE),
+            }
+
+            existing_params = {key: value for key, value in params.items() if value is not None}
+
             plot = yt.ParticlePlot(
-                ds, field_x, field_y, 
-                z_fields = self.query("z_fields", None),
-                color = self.query("particle_plot_color", "b"),
-                weight_field = self.query("weight_field", None),
-                fontsize = self.query("fontsize", 18),
-                data_source = self.query("data_source", None),
-                center = self.query("center", "center"),
-                width = self.query("width", None),
-                depth = self.query("depth", None),
-                axes_unit = self.query("axes_unit", None),
-                origin = self.query("origin", None), # TODO : figure these ones out
-                window_size = self.query("windows_size", 8.0),
-                aspect = self.query("aspect", None),
-                x_bins = self.query("x_bins", None),
-                y_bins = self.query("y_bins", None),
-                deposition = self.query("deposition", None),
-                figure_size = self.query("figure_size", None),
+                ds, x_field, y_field, **existing_params
             )
             
-            # TODO fix query jank
-            
-            self.publish("plot", plot)
+            self.publish(Data.PLOT, plot)
             return True
         return False
 
@@ -205,63 +213,63 @@ class PlotManager(Subscriber, Publisher):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.activated = False
-        self.subscribe(["plot", 
-                        "pan_x", 
-                        "pan_y", 
-                        "pan_rel_x", 
-                        "pan_rel_y", 
-                        "zoom", 
-                        "axes_unit", 
-                        "img_unit", 
-                        "center", 
-                        "flip_horizontal", 
-                        "flip_vertical", 
-                        "swap_axes"])
+        self.subscribe([Data.PLOT, 
+                        UserAction.PAN_X,
+                        UserAction.PAN_Y,
+                        UserAction.PAN_REL_X,
+                        UserAction.PAN_REL_Y,
+                        UserAction.ZOOM,
+                        UserAction.AXES_UNIT,
+                        UserAction.IMG_UNIT,
+                        UserAction.CENTER,
+                        UserAction.FLIP_HORIZONTAL,
+                        UserAction.FLIP_VERTICAL,
+                        UserAction.SWAP_AXES,
+                        ])
 
-    def handle_update(self, name: str):
-        if not self.activated and name == "plot":
+    def handle_update(self, name: V3Option):
+        if not self.activated and name is Data.PLOT:
             self.activated = True
         if self.activated:
-            match self.query("plot_type"):
-                case PlotOption.SLICE_PLOT | PlotOption.PROJECTION_PLOT | PlotOption.PARTICLE_PLOT:
-                    plot: yt.AxisAlignedSlicePlot | yt.OffAxisSlicePlot | yt.AxisAlignedProjectionPlot |  yt.OffAxisProjectionPlot | yt.ParticleProjectionPlot = self.query("plot")
+            match self.query(PlotOption.PLOT_TYPE):
+                case PlotTypeOption.SLICE_PLOT | PlotTypeOption.PROJECTION_PLOT | PlotTypeOption.PARTICLE_PLOT:
+                    plot: PlotType = self.query(Data.PLOT)
                     data = self.query(name)
                     if plot is not None and data is not None:
                         match name:
-                            case "pan_x":
+                            case UserAction.PAN_X:
                                 plot.pan((data, 0))
-                            case "pan_y":
+                            case UserAction.PAN_Y:
                                 plot.pan((0, data))
-                            case "pan_rel_x":
+                            case UserAction.PAN_REL_X:
                                 plot.pan_rel((data, 0))
-                            case "pan_rel_y":
+                            case UserAction.PAN_REL_Y:
                                 plot.pan_rel((0, data))
-                            case "zoom":
+                            case UserAction.ZOOM:
                                 plot.zoom(data)
-                            case "axes_unit":
+                            case UserAction.AXES_UNIT:
                                 plot.set_axes_unit(data)
-                            case "img_unit":
+                            case UserAction.IMG_UNIT:
                                 plot.set_unit(data)
-                            case "center":
+                            case UserAction.CENTER:
                                 plot.set_center(data)
-                            case "flip_horizontal":
+                            case UserAction.FLIP_HORIZONTAL:
                                 plot.flip_horizontal()
-                            case "flip_vertical":
+                            case UserAction.FLIP_VERTICAL:
                                 plot.flip_vertical()
-                            case "swap_axes":
+                            case UserAction.SWAP_AXES:
                                 plot.swap_axes()
                             # TODO: add functionality for annotations
                             case _:
                                 pass
-                        if plot is not None:
-                            path: str = self.query("img_name")
-                            plot.save(path)
-                            self.publish("img", QImage(path))
-                case PlotOption.PARTICLE_PHASE_PLOT:
-                    phase_plot: yt.ParticlePhasePlot = self.query("data_source")
+                        path: str = self.query(PlotOption.SAVE_TO)
+                        plot.save(path)
+                        self.publish(Data.IMAGE, QImage(path))
+                case PlotTypeOption.PARTICLE_PHASE_PLOT:
+                    phase_plot: yt.ParticlePhasePlot = self.query(PlotOption.PLOT_TYPE)
                     data = self.query(name)
                     match name:
-                        case "img_unit":
+                        case UserAction.IMG_UNIT:
                             phase_plot.set_unit(data)
                         # TODO: add functionality for annotations
                         case _:
@@ -273,18 +281,10 @@ class MakePlotPanel(Publisher, QAdjustable):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         QAdjustable.__init__(self)
-        self.add_field("plot_type", PlotOption.SLICE_PLOT, None)
-        self.add_field("dataset", None, None)
-        self.add_field("center", (0.5,0.5,0.5), None)
-        self.add_field("zoom", 1.0, None)
-        self.add_field("normal", "x", None)
-        self.add_field("width", None, None)
-        self.add_field("weight_field", None, None)
-        self.add_field("data_source", None, None)
-        self.add_field("buff_size", None, None)
-        self.add_field("moment", None, None)
-        self.add_field("img_name", "tmp.png", None)
-        self.add_field("create_plot", None, None)
+
+        for op in PlotOption:
+            self.add_field(op)
+        
         self.__init_layout__()
 
     def __init_layout__(self):
@@ -294,7 +294,10 @@ class SliceProjectionPlotPanel(Publisher, QAdjustable):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         QAdjustable.__init__(self)
-        self.add_field("fields", None, None)
+
+        for op in SliceProjPlotOption:
+            self.add_field(op)
+
         self.__init_layout__()
 
     def __init_layout__(self):
@@ -304,9 +307,10 @@ class ParticlePlotPanel(Publisher, QAdjustable):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         QAdjustable.__init__(self)
-        self.add_field("field_x", None, None)
-        self.add_field("field_y", None, None)
-        self.add_field("field_z", None, None)
+
+        for op in ParticlePlotOption:
+            self.add_field(op)
+
         self.__init_layout__()
 
     def __init_layout__(self):
@@ -316,13 +320,10 @@ class EditPlotPanel(Publisher, QAdjustable):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         QAdjustable.__init__(self)
-        self.add_field("pan_x", 0, 0)
-        self.add_field("pan_y", 0, 0)
-        self.add_field("pan_rel_x", 0, 0)
-        self.add_field("pan_rel_y", 0, 0)
-        self.add_field("zoom", 1, 1)
-        self.add_field("axes_unit", None, None)
-        self.add_field("img_unit", None, None)
+        
+        for op in UserAction:
+            self.add_field(op)
+
         self.__init_layout__()
 
     def __init_layout__(self):
@@ -332,15 +333,19 @@ class Test(Publisher):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         ds = yt.load("C:\\Users\\jonat\\PycharmProjects\\gems\\review\\ricotti_simulation\\output_00273")
-        self.add_field("dataset", None, None)
-        self.add_field("fields", [], None)
+        self.add_field(PlotOption.DATASET)
+        self.add_field(SliceProjPlotOption.FIELDS)
         
-        self.publish("dataset", ds)
-        self.publish("fields", [("ramses", "HeII")])
-        self.publish("create_plot", True)
+        self.publish(PlotOption.DATASET, ds)
+        print("published dataset")
+        self.publish(SliceProjPlotOption.NORMAL, "x")
+        self.publish(SliceProjPlotOption.FIELDS, [("ramses", "HeII")])
+        print("published fields")
+        self.publish(UserAction.CREATE_PLOT, True)
+        print("created plot")
 
-        self.publish("zoom", 10)
-
+        self.publish(UserAction.ZOOM, 10)
+        print("done")
         # kinda works !
 
 if __name__ == "__main__":
