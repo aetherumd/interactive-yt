@@ -6,7 +6,7 @@ from options import *
 
 class EventBroker:
     """
-    
+    Handles incoming/outgoing requests for information.
     """
     
     def __init__(self):
@@ -47,10 +47,22 @@ class EventBroker:
             self.entries[name] = (data, default, consume, subs)
 
 class AuthorUser:
+    """
+    Parent class for Publisher & Subscriber. 
+    
+    May be unnecessary, but there could
+    have been a problem in the past where multi-inheritance did not work otherwise.
+    I do not remember and have no motivation to confirm this at the moment.
+    12/11/2024.
+    """
+
     def __init__(self, broker: "EventBroker"):
         self.broker = broker
 
 class Publisher(AuthorUser):
+    """
+    Generates/collects then publishes information.
+    """
     def __init__(self, broker: "EventBroker"):
         super().__init__(broker)
         self.broker: "EventBroker" = broker
@@ -71,6 +83,11 @@ class Publisher(AuthorUser):
 
 
 class Subscriber(AuthorUser):
+    """
+    Subscribes to certain fields of its broker. When one of those fields is updated,
+    the Subscriber is notified & able to query any information it pleases.
+    """
+
     def __init__(self, broker: "EventBroker"):
         super().__init__(broker)
         self.broker: "EventBroker" = broker
