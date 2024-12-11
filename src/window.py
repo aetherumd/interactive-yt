@@ -345,8 +345,14 @@ class MakePlotPanel(Publisher, QAdjustable):
         
         self.__init_layout__()
 
-    def __init_layout__(self):
+    def __init_layout__(self):        
+        """
+        TODO:
+            make inputs for the quantities in options.PlotOption    
+        """
         layout = QHBoxLayout(self)
+
+
 
 class SliceProjectionPlotPanel(Publisher, QAdjustable):
     """
@@ -364,7 +370,11 @@ class SliceProjectionPlotPanel(Publisher, QAdjustable):
 
         self.__init_layout__()
 
-    def __init_layout__(self):
+    def __init_layout__(self):      
+        """
+        TODO:
+            make inputs for the quantities in options.SliceProjPlotOption    
+        """
         layout = QHBoxLayout(self)
 
 class ParticlePlotPanel(Publisher, QAdjustable):
@@ -383,7 +393,11 @@ class ParticlePlotPanel(Publisher, QAdjustable):
 
         self.__init_layout__()
 
-    def __init_layout__(self):
+    def __init_layout__(self):      
+        """
+        TODO:
+            make inputs for the quantities in options.ParticlePlotOption    
+        """
         layout = QHBoxLayout(self)
 
 class EditPlotPanel(Publisher, QAdjustable):
