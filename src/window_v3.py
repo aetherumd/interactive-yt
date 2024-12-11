@@ -136,6 +136,7 @@ class PlotMaker(Subscriber, Publisher):
                 "data_source": self.query(PlotOption.DATA_SOURCE),
                 "buff_size": self.query(PlotOption.BUFF_SIZE),
             }
+            print(params)
             
             existing_params = {key: value for key, value in params.items() if value is not None}
             plot = yt.SlicePlot(
@@ -162,6 +163,7 @@ class PlotMaker(Subscriber, Publisher):
                 "data_source": self.query(PlotOption.DATA_SOURCE),
                 "buff_size": self.query(PlotOption.BUFF_SIZE),
             }
+
 
             existing_params = {key: value for key, value in params.items() if value is not None}
 

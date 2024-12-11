@@ -53,11 +53,11 @@ class PlotOption(Enum):
     ),
     WINDOW_SIZE = 9, data_tuple(
         data=None,
-        default=None
+        default=8.0
     ),
     ASPECT = 10, data_tuple(
         data=None,
-        default=8.0
+        default=None
     ),
     DATA_SOURCE = 11, data_tuple(
         data=None,
