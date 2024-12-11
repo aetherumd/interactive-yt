@@ -10,12 +10,6 @@ import yt.data_objects
 import yt.data_objects.static_output
 from info_handling import EventBroker, Publisher, Subscriber
 
-"""
-biggest problems atm:
-strings as keys are inconsistent at best, maybe try enums?
-layouts
-"""
-
 PlotType = Union[ 
     yt.AxisAlignedSlicePlot,
     yt.OffAxisSlicePlot,
