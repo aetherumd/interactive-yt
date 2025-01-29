@@ -9,6 +9,7 @@ from options import *
 import yt.data_objects
 import yt.data_objects.static_output
 from info_handling import EventBroker, Publisher, Subscriber
+import re
 
 PlotType = Union[ 
     yt.AxisAlignedSlicePlot,
@@ -177,10 +178,9 @@ class PlotMaker(Subscriber, Publisher):
                 "field_parameters": self.query(PlotOption.FIELD_PARAMETERS),
                 "window_size": self.query(PlotOption.WINDOW_SIZE),
                 "aspect": self.query(PlotOption.ASPECT),
-                "data_source": self.query(PlotOption.DATA_SOURCE),
+                "dataset": self.query(PlotOption.DATASET),
                 "buff_size": self.query(PlotOption.BUFF_SIZE),
             }
-            print(params)
             
             existing_params = {key: value for key, value in params.items() if value is not None}
             plot = yt.SlicePlot(
@@ -204,7 +204,7 @@ class PlotMaker(Subscriber, Publisher):
                 "field_parameters": self.query(PlotOption.FIELD_PARAMETERS),
                 "window_size": self.query(PlotOption.WINDOW_SIZE),
                 "aspect": self.query(PlotOption.ASPECT),
-                "data_source": self.query(PlotOption.DATA_SOURCE),
+                "dataset": self.query(PlotOption.DATASET),
                 "buff_size": self.query(PlotOption.BUFF_SIZE),
             }
 
@@ -231,7 +231,7 @@ class PlotMaker(Subscriber, Publisher):
                 "color": self.query(ParticlePlotOption.COLOR),
                 "weight_field": self.query(PlotOption.WEIGHT_FIELD),
                 "fontsize": self.query(PlotOption.FONT_SIZE),
-                "data_source": self.query(PlotOption.DATA_SOURCE),
+                "dataset": self.query(PlotOption.DATASET),
                 "center": self.query(PlotOption.CENTER),
                 "width": self.query(PlotOption.WIDTH),
                 "depth": self.query(ParticlePlotOption.DEPTH),
@@ -284,7 +284,7 @@ class PlotManager(Subscriber, Publisher):
     def handle_update(self, name: V3Option):
         if not self.activated and name is Data.PLOT:
             self.activated = True
-        if self.activated:
+        elif self.activated:
             match self.query(PlotOption.PLOT_TYPE):
                 case PlotTypeOption.SLICE_PLOT | PlotTypeOption.PROJECTION_PLOT | PlotTypeOption.PARTICLE_PLOT:
                     plot: PlotType = self.query(Data.PLOT)
@@ -329,30 +329,98 @@ class PlotManager(Subscriber, Publisher):
                 case _:
                     pass
 
-class MakePlotPanel(Publisher, QAdjustable):
+class MakePlotPanel(Publisher, Subscriber, QAdjustable):
     """
     Gives options related to plot creation, depending on selected plot type.
 
     TODO:
         Implement functionality for options in options.PlotOption
     """
+    class Widgets(Enum):
+        PLOT_TYPE = 1,
+        DIRECTION = 2,
+        FIELDS = 3
+
+    
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         QAdjustable.__init__(self)
 
         for op in PlotOption:
             self.add_field(op)
+
+        self.subscribe([PlotOption.DATASET])
         
         self.__init_layout__()
 
-    def __init_layout__(self):        
+    def __init_layout__(self):   
         """
         TODO:
             make inputs for the quantities in options.PlotOption    
         """
-        layout = QHBoxLayout(self)
+        self.widgets = dict()
+        self.entries = list()
+        
+        layout = QVBoxLayout(self)
 
+        plot_type = QComboBox()
+        for entry in ["Slice Plot", "Projection Plot", "Particle Plot"]:
+            plot_type.addItem(entry)
+        self.widgets.update({self.Widgets.PLOT_TYPE: plot_type})
+        plot_type.currentIndexChanged.connect(self.plot_type_handler)
 
+        direction = QLineEdit("")
+        direction.setText("x")
+        self.widgets.update({self.Widgets.DIRECTION: direction})
+        direction.textChanged.connect(self.direction_handler)
+        
+        field = QComboBox()
+        ds = self.query(PlotOption.DATASET)
+        if ds is not None:
+            for entry in ds.fields:
+                field.addItem(entry)
+        self.widgets.update({self.Widgets.FIELDS: field})
+
+        for wgt in self.widgets.values():
+            layout.addWidget(wgt)
+    
+    @QtCore.Slot()
+    def plot_type_handler(self):
+        plot_select = self.widgets.get(self.Widgets.PLOT_TYPE)
+        if type(plot_select) is QComboBox:
+            select = plot_select.currentText()
+            if select == "Slice Plot":
+                self.publish(PlotOption.PLOT_TYPE, PlotTypeOption.SLICE_PLOT)
+            elif select == "Projection Plot":
+                self.publish(PlotOption.PLOT_TYPE, PlotTypeOption.PROJECTION_PLOT)
+            elif select == "Particle Plot":
+                self.publish(PlotOption.PLOT_TYPE, PlotTypeOption.PARTICLE_PLOT)
+        print(self.query(PlotOption.PLOT_TYPE))
+
+    @QtCore.Slot()
+    def direction_handler(self):
+        dir = self.widgets.get(self.Widgets.DIRECTION)
+        if type(dir) is QLineEdit:
+            txt = dir.text()
+            card = r"x|y|z"
+            vec = r"(\(((\s*([0-9]+(?:\.[0-9]*)?)\s*,){2}\s*([0-9]+(?:\.[0-9]*)?)\s*\s*)\))"
+            if(re.fullmatch(card, txt)):
+                self.publish(SliceProjPlotOption.NORMAL, txt)
+            elif (re.fullmatch(vec, txt)):
+                num = r"\s*([0-9]+(?:\.[0-9]*)?)\s*"
+                self.publish(SliceProjPlotOption.NORMAL, tuple(map(float, re.findall(num, txt))))
+        print(self.query(SliceProjPlotOption.NORMAL))
+
+    def handle_update(self, name):
+        match name:
+            case PlotOption.DATASET:
+                ds = self.query(name)
+                if ds is not None:
+                    field = self.widgets.get(self.Widgets.FIELDS)
+                    if type(field) is QComboBox:
+                        field.clear()    
+                        for entry in ds.fields:
+                            field.addItem(entry)
 
 class SliceProjectionPlotPanel(Publisher, QAdjustable):
     """
