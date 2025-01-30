@@ -122,7 +122,7 @@ class ParticlePlotOption(Enum):
     FIGURE_SIZE = 9, data_tuple(
         data=None,
         default=None
-    ),
+    )
 
 class Data(Enum):
     IMAGE = 1, data_tuple(
