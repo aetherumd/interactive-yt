@@ -63,9 +63,6 @@ class PlotMaker(Subscriber, Publisher):
         ds = self.query(PlotOption.DATASET)
         normal = self.query(SliceProjPlotOption.NORMAL)
         fields = self.query(SliceProjPlotOption.FIELDS)
-        print(ds)
-        print(normal)
-        print(fields)
         if ds is not None and normal is not None and fields is not None:
             params = {
                 "center": self.query(PlotOption.CENTER),

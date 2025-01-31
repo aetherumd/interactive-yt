@@ -114,7 +114,6 @@ class MakePlotPanel(Publisher, QAdjustable):
 
     @QtCore.Slot()
     def plot(self):
-        print("AAA")
         self.publish(UserAction.CREATE_PLOT, True)
 
 class SliceProjectionPlotPanel(Publisher, Subscriber, QAdjustable):
@@ -171,7 +170,6 @@ class SliceProjectionPlotPanel(Publisher, Subscriber, QAdjustable):
                 self.publish(SliceProjPlotOption.NORMAL, txt)
             elif (re.fullmatch(vec, txt)):
                 self.publish(SliceProjPlotOption.NORMAL, literal_eval(txt))
-        print(self.query(SliceProjPlotOption.NORMAL))
 
     @QtCore.Slot()
     def field_manager(self):
@@ -184,7 +182,6 @@ class SliceProjectionPlotPanel(Publisher, Subscriber, QAdjustable):
         match name:
             case PlotOption.DATASET:
                 ds = self.query(name)
-                print(type(ds))
                 if type(ds) is not None:
                     field = self.widgets.get(SliceProjPlotOption.FIELDS)
                     if type(field) is QComboBox:
@@ -271,7 +268,6 @@ class ParticlePlotPanel(Publisher, Subscriber, QAdjustable):
         match name:
             case PlotOption.DATASET:
                 ds = self.query(name)
-                print(type(ds))
                 if type(ds) is not None:
                     boxes = [
                         self.widgets.get(ParticlePlotOption.X_FIELD),
