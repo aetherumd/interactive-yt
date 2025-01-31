@@ -51,6 +51,9 @@ class AuthorUser:
     have been a problem in the past where multi-inheritance did not work otherwise.
     I do not remember and have no motivation to confirm this at the moment.
     12/11/2024.
+
+    update: sounds about right, code works atm so no need to change
+    1/30/25
     """
 
     def __init__(self, broker: "EventBroker"):

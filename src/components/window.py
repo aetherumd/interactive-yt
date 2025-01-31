@@ -38,15 +38,24 @@ class YtWindow(QAdjustable):
         left_layout = QVBoxLayout(left)
         right_layout = QVBoxLayout(right)
 
+        tabbar = QTabBar()
+        tabbar.addTab("make plot")
+        tabbar.addTab("edit plot")
+        self.add_widget("tabbar", tabbar)
+        tabbar.currentChanged.connect(self.tab_bar_clicked)
+
         img_pane = self.add_widget("img_pane", ImagePanel(self.broker))
         make_plot_pane = self.add_widget("make_plot_panel", MakePlotPanel(self.broker))
         edit_plot_pane = self.add_widget("edit_plot_panel", EditPlotPanel(self.broker))
+
         self.plot_maker = PlotMaker(self.broker)
         self.plot_manager = PlotManager(self.broker)
 
         left_layout.addWidget(img_pane)
+        right_layout.addWidget(tabbar)
         right_layout.addWidget(make_plot_pane)
         right_layout.addWidget(edit_plot_pane)
+        edit_plot_pane.setVisible(False)
 
         layout.addWidget(left)
         layout.addWidget(right)
@@ -58,6 +67,26 @@ class YtWindow(QAdjustable):
         left.setFixedWidth(self.width()//2-1)
         left.setFixedHeight(self.width()//2-1)
     
+    @QtCore.Slot()
+    def tab_bar_clicked(self):
+        print("hello")
+        tabbar = self.get_widget("tabbar")
+        if type(tabbar) is QTabBar:
+            print(tabbar.currentIndex())
+            match tabbar.currentIndex():
+                case 0:
+                    mpp = self.get_widget("make_plot_panel")
+                    epp = self.get_widget("edit_plot_panel")
+                    if isinstance(mpp, QWidget) and isinstance(epp, QWidget):
+                        mpp.setVisible(True)
+                        epp.setVisible(False)
+                case 1:
+                    mpp = self.get_widget("make_plot_panel")
+                    epp = self.get_widget("edit_plot_panel")
+                    if isinstance(mpp, QWidget) and isinstance(epp, QWidget):
+                        mpp.setVisible(False)
+                        epp.setVisible(True)
+
     def resizeEvent(self, event):
         super().resizeEvent(event)
         left = self.widgets.get("left")
