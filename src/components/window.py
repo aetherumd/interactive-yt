@@ -96,25 +96,6 @@ class YtWindow(QAdjustable):
             
             left.setMaximumWidth(event.size().width() - left.width())
 
-class EditPlotPanel(Publisher, QAdjustable):
-    """
-    Gives options related to editing plots.
-
-    TODO:
-        Implement functionality for options in options.UserAction except for CREATE_PLOT
-    """
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        QAdjustable.__init__(self)
-        
-        for op in UserAction:
-            self.add_field(op)
-
-        self.__init_layout__()
-
-    def __init_layout__(self):
-        layout = QHBoxLayout(self)
-
 class Test(Publisher):
     """
     Testing basic functionality.
