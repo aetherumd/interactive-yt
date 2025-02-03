@@ -69,10 +69,8 @@ class YtWindow(QAdjustable):
     
     @QtCore.Slot()
     def tab_bar_clicked(self):
-        print("hello")
         tabbar = self.get_widget("tabbar")
         if type(tabbar) is QTabBar:
-            print(tabbar.currentIndex())
             match tabbar.currentIndex():
                 case 0:
                     mpp = self.get_widget("make_plot_panel")
