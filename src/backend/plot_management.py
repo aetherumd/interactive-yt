@@ -1,14 +1,11 @@
-from PySide6 import QtCore, QtWidgets, QtGui
-from PySide6.QtCore import Qt
 from PySide6.QtWidgets import *
-from PySide6.QtGui import QPixmap, QImage
-import sys, yt, typing
-from enum import Enum
+from PySide6.QtGui import QImage
 from typing import *
-from options import *
-import yt.data_objects
-import yt.data_objects.static_output
-from info_handling import EventBroker, Publisher, Subscriber
+
+from backend.info_handling import *
+from backend.options import *
+
+import yt
 
 PlotType = Union[ 
     yt.AxisAlignedSlicePlot,
@@ -18,107 +15,6 @@ PlotType = Union[
     yt.ParticleProjectionPlot,
     yt.ParticlePhasePlot
 ]
-
-class QAdjustable(QWidget):
-    """
-    Inheritable class for interactive_yt widgets.
-
-    Has built-in child widget management, and stores widgets regardless if they
-    are used. This functionality is necessary for how we are handling switching
-    tabs (I believe).
-
-    TODO: 
-        add resizing
-    """
-    def __init__(self):
-        super().__init__()
-        self.widgets: dict[QWidget] = dict()
-
-    def add_widget(self, name: str, w: QWidget) -> QWidget:
-        self.widgets[name] = w
-        return w
-
-    def get_widget(self, name: str) -> QWidget:
-        return self.widgets[name]
-
-class YtWindow(QAdjustable):
-    """
-    Frontend handler.
-
-    Contains top-level widgets, leaves information processing to its children.
-    """
-    def __init__(self):
-        super().__init__()
-        self.broker = EventBroker()
-        self.__init_layout__()
-
-    def __init_layout__(self):
-        layout = QHBoxLayout(self)
-
-        left = self.add_widget("left", QWidget())
-        right = self.add_widget("right", QWidget())
-
-        left_layout = QVBoxLayout(left)
-        right_layout = QVBoxLayout(right)
-
-        img_pane = self.add_widget("img_pane", ImagePanel(self.broker))
-        make_plot_pane = self.add_widget("make_plot_panel", MakePlotPanel(self.broker))
-        edit_plot_pane = self.add_widget("edit_plot_panel", EditPlotPanel(self.broker))
-        self.plot_maker = PlotMaker(self.broker)
-        self.plot_manager = PlotManager(self.broker)
-
-        left_layout.addWidget(img_pane)
-        right_layout.addWidget(make_plot_pane)
-        right_layout.addWidget(edit_plot_pane)
-
-        layout.addWidget(left)
-        layout.addWidget(right)
-
-        ## Testing code
-        ##self.broker.publish(Data.IMAGE, QImage("tmp.png"))
-        ##test = Test(self.broker)
-
-        self.widgets["left"].setFixedWidth(self.width()//2-1)
-        self.widgets["left"].setFixedHeight(self.width()//2-1)
-    
-    def resizeEvent(self, event):
-        super().resizeEvent(event)
-        
-        self.widgets["left"].setFixedWidth(event.size().width()//2)
-        self.widgets["left"].setFixedHeight(event.size().width()//2)
-        
-        self.widgets["right"].setMaximumWidth(event.size().width() - self.widgets["left"].width())
-
-class ImagePanel(Subscriber, QAdjustable):
-    """
-    Renders the user-created image.
-
-    Subscribed to Data.IMAGE, writes new image to screen.
-
-    TODO: 
-        add a plot history option? maybe should be its own class
-    """
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        QAdjustable.__init__(self)
-        self.subscribe([Data.IMAGE])
-        self.__init_layout__()
-
-    def __init_layout__(self):
-        layout = QHBoxLayout(self)
-        image = self.add_widget("image", QLabel(self))
-        image.setScaledContents(True)
-        layout.addWidget(image)
-    
-    def handle_update(self, name: str):
-        match name:
-            case Data.IMAGE:
-                self.set_img(self.query(name))
-            case _:
-                pass
-    
-    def set_img(self, img: QImage):
-        self.get_widget("image").setPixmap(QPixmap.fromImage(img))
 
 class PlotMaker(Subscriber, Publisher):
     """
@@ -155,7 +51,7 @@ class PlotMaker(Subscriber, Publisher):
                     case _:
                         pass
                 if success:
-                    plot : PlotType = self.query(Data.PLOT)
+                    plot: PlotType = self.query(Data.PLOT)
                     if plot is not None:
                         path: str = self.query(PlotOption.SAVE_TO)
                         plot.save(path)
@@ -180,7 +76,6 @@ class PlotMaker(Subscriber, Publisher):
                 "data_source": self.query(PlotOption.DATA_SOURCE),
                 "buff_size": self.query(PlotOption.BUFF_SIZE),
             }
-            print(params)
             
             existing_params = {key: value for key, value in params.items() if value is not None}
             plot = yt.SlicePlot(
@@ -207,7 +102,6 @@ class PlotMaker(Subscriber, Publisher):
                 "data_source": self.query(PlotOption.DATA_SOURCE),
                 "buff_size": self.query(PlotOption.BUFF_SIZE),
             }
-
 
             existing_params = {key: value for key, value in params.items() if value is not None}
 
@@ -328,111 +222,3 @@ class PlotManager(Subscriber, Publisher):
                             pass
                 case _:
                     pass
-
-class MakePlotPanel(Publisher, QAdjustable):
-    """
-    Gives options related to plot creation, depending on selected plot type.
-
-    TODO:
-        Implement functionality for options in options.PlotOption
-    """
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        QAdjustable.__init__(self)
-
-        for op in PlotOption:
-            self.add_field(op)
-        
-        self.__init_layout__()
-
-    def __init_layout__(self):
-        layout = QHBoxLayout(self)
-
-class SliceProjectionPlotPanel(Publisher, QAdjustable):
-    """
-    Gives options related to slice & projection plot creation.
-
-    TODO:
-        Implement functionality for options in options.SliceProjPlotOption
-    """
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        QAdjustable.__init__(self)
-
-        for op in SliceProjPlotOption:
-            self.add_field(op)
-
-        self.__init_layout__()
-
-    def __init_layout__(self):
-        layout = QHBoxLayout(self)
-
-class ParticlePlotPanel(Publisher, QAdjustable):
-    """
-    Gives options related to particle plot creation.
-
-    TODO:
-        Implement functionality for options in options.ParticlePlotOption
-    """
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        QAdjustable.__init__(self)
-
-        for op in ParticlePlotOption:
-            self.add_field(op)
-
-        self.__init_layout__()
-
-    def __init_layout__(self):
-        layout = QHBoxLayout(self)
-
-class EditPlotPanel(Publisher, QAdjustable):
-    """
-    Gives options related to editing plots.
-
-    TODO:
-        Implement functionality for options in options.UserAction except for CREATE_PLOT
-    """
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        QAdjustable.__init__(self)
-        
-        for op in UserAction:
-            self.add_field(op)
-
-        self.__init_layout__()
-
-    def __init_layout__(self):
-        layout = QHBoxLayout(self)
-
-class Test(Publisher):
-    """
-    Testing basic functionality.
-
-    To use, make sure that PATH is set to the desired dataset.
-    """
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        ds = yt.load("PATH")
-        self.add_field(PlotOption.DATASET)
-        self.add_field(SliceProjPlotOption.FIELDS)
-        
-        self.publish(PlotOption.DATASET, ds)
-        print("published dataset")
-        self.publish(SliceProjPlotOption.NORMAL, "x")
-        self.publish(SliceProjPlotOption.FIELDS, [("ramses", "HeII")])
-        print("published fields")
-        self.publish(UserAction.CREATE_PLOT, True)
-        print("created plot")
-
-        self.publish(UserAction.ZOOM, 10)
-        print("done")
-
-if __name__ == "__main__":
-    app = QtWidgets.QApplication([])
-
-    ytw = YtWindow()
-    ytw.resize(600,600)
-    ytw.show()
-
-    sys.exit(app.exec())
