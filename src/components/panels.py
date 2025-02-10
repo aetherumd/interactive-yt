@@ -330,4 +330,33 @@ class EditPlotPanel(Publisher, QAdjustable):
         self.__init_layout__()
 
     def __init_layout__(self):
-        layout = QHBoxLayout(self)
+        layout = QVBoxLayout(self)
+
+        x_region = self.add_widget("x_region",QAdjustable())
+        x_region_layout = QHBoxLayout(x_region) 
+        x_minus = x_region.add_widget("x_minus",QPushButton("-"))
+        x_input = x_region.add_widget("x_input",QLineEdit("x"))
+        x_plus = x_region.add_widget("x_plus",QPushButton("+"))
+
+        for i in x_region.widgets.values():
+          print(i)
+          x_region_layout.addWidget(i)
+
+        y_region = self.add_widget("y_region",QAdjustable())
+        y_region_layout = QHBoxLayout(y_region) 
+        y_minus = y_region.add_widget("y_minus",QPushButton("-"))
+        y_input = y_region.add_widget("y_input",QLineEdit("y"))
+        y_plus = y_region.add_widget("y_plus",QPushButton("+"))
+
+        for i in y_region.widgets.values():
+          y_region_layout.addWidget(i)
+
+        zoom_region = self.add_widget("zoom_region",QAdjustable())
+        zoom_region_layout = QHBoxLayout(zoom_region) 
+        zoom_minus = zoom_region.add_widget("zoom_minus",QPushButton("-"))
+        zoom_input = zoom_region.add_widget("zoom_input",QLineEdit("zoom"))
+        zoom_plus = zoom_region.add_widget("zoom_plus",QPushButton("+"))
+
+        for i in zoom_region.widgets.values():
+          zoom_region_layout.addWidget(i)
+        
