@@ -1,16 +1,11 @@
 from PySide6 import QtCore
+from PySide6.QtCore import QRegularExpression
+from PySide6.QtGui import QPixmap, QImage, QRegularExpressionValidator
 from PySide6.QtWidgets import *
-from PySide6.QtGui import QPixmap, QImage
 
 from components.ui import QAdjustable
-
 from backend.info_handling import *
 from backend.options import *
-
-from typing import *
-from ast import literal_eval
-
-import yt, re
 
 class MakePlotPanel(Publisher, QAdjustable):
     """
@@ -23,6 +18,25 @@ class MakePlotPanel(Publisher, QAdjustable):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         QAdjustable.__init__(self)
+
+        self.cellFields = [
+                "Density",
+                "x-velocity",
+                "y-velocity",
+                "z-velocity",
+                "Pressure",
+                "Metallicity",
+                "xHI",
+                "xHII",
+                "xHeII",
+                "xHeIII",
+            ]
+        self.epf = [
+                ("particle_family", "b"),
+                ("particle_tag", "b"),
+                ("particle_birth_epoch", "d"),
+                ("particle_metallicity", "d"),
+            ]
 
         for op in PlotOption:
             self.add_field(op)
@@ -61,8 +75,16 @@ class MakePlotPanel(Publisher, QAdjustable):
         file_dialog = QPushButton("Open file")
         file_dialog.clicked.connect(self.open_file_dialog)
 
+        field_dialog = QPushButton("Set fields")
+        field_dialog.clicked.connect(self.open_field_dialog)
+
+        epf_dialog = QPushButton("Set EPFs")
+        epf_dialog.clicked.connect(self.open_epf_dialog)
+
         fp_layout.addWidget(folder_dialog)
         fp_layout.addWidget(file_dialog)
+        fp_layout.addWidget(field_dialog)
+        fp_layout.addWidget(epf_dialog)
 
         self.widgets.update({PlotOption.DATASET: file_pane})
 
@@ -93,13 +115,31 @@ class MakePlotPanel(Publisher, QAdjustable):
                 self.get_widget(PlotTypeOption.PARTICLE_PLOT).setVisible(True)
 
     @QtCore.Slot()
+    def open_field_dialog(self):
+        t = QLineEdit()
+        t.setValidator(QRegularExpressionValidator(QRegularExpression("\[.*\]"), t))
+        QLabel().setText(f"Entered: {t.text()}")
+
+        if t.hasAcceptableInput():
+            self.cellFields = t.text()
+
+    @QtCore.Slot()
+    def open_epf_dialog(self):
+        t = QLineEdit()
+        t.setValidator(QRegularExpressionValidator(QRegularExpression("\[.*\]"), t))
+        QLabel().setText(f"Entered: {t.text()}")
+
+        if t.hasAcceptableInput():
+            self.epf = t.text()
+
+    @QtCore.Slot()
     def open_file_dialog(self):
         f = QFileDialog()
         f.setFileMode(QFileDialog.FileMode.ExistingFile)
         f.exec()
         s = f.selectedFiles()[0]
-        if (s != None):
-            ds = yt.load(s)
+        if s is not None:
+            ds = yt.load(s, fields = self.cellFields, extra_particle_fields = self.epf)
             self.publish(PlotOption.DATASET, ds)
 
     @QtCore.Slot()
@@ -108,7 +148,7 @@ class MakePlotPanel(Publisher, QAdjustable):
         f.setFileMode(QFileDialog.FileMode.Directory)
         f.exec()
         s = f.selectedFiles()[0]
-        if (s != None):
+        if s is not None:
             ds = yt.load(s)
             self.publish(PlotOption.DATASET, ds)
 
