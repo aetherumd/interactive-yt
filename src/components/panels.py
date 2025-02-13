@@ -7,7 +7,10 @@ from components.ui import QAdjustable
 from backend.info_handling import *
 from backend.options import *
 
-class MakePlotPanel(Publisher, QAdjustable):
+from ast import literal_eval
+import yt, re
+
+class MakePlotPanel(Publisher, Subscriber, QAdjustable):
     """
     Gives options related to plot creation, depending on selected plot type.
 
@@ -19,24 +22,7 @@ class MakePlotPanel(Publisher, QAdjustable):
         super().__init__(*args, **kwargs)
         QAdjustable.__init__(self)
 
-        self.cellFields = [
-                "Density",
-                "x-velocity",
-                "y-velocity",
-                "z-velocity",
-                "Pressure",
-                "Metallicity",
-                "xHI",
-                "xHII",
-                "xHeII",
-                "xHeIII",
-            ]
-        self.epf = [
-                ("particle_family", "b"),
-                ("particle_tag", "b"),
-                ("particle_birth_epoch", "d"),
-                ("particle_metallicity", "d"),
-            ]
+        self.subscribe([PlotOption.CELL_FIELDS, PlotOption.EPF])
 
         for op in PlotOption:
             self.add_field(op)
@@ -54,8 +40,7 @@ class MakePlotPanel(Publisher, QAdjustable):
         layout = QVBoxLayout(self)
 
         plot_type = QComboBox()
-        for entry in ["Slice Plot", "Projection Plot", "Particle Plot"]:
-            plot_type.addItem(entry)
+        plot_type.addItems(["Slice Plot", "Projection Plot", "Particle Plot"])
         self.widgets.update({PlotOption.PLOT_TYPE: plot_type})
         plot_type.currentIndexChanged.connect(self.plot_type_handler)
 
@@ -67,26 +52,47 @@ class MakePlotPanel(Publisher, QAdjustable):
         particlepane.setVisible(False)
 
         file_pane = QWidget()
-        fp_layout = QHBoxLayout(file_pane)
+        fp_layout = QVBoxLayout(file_pane)
 
-        folder_dialog = QPushButton("Open folder")
-        folder_dialog.clicked.connect(self.open_folder_dialog)
+        self.f = QFileDialog(self)
 
-        file_dialog = QPushButton("Open file")
+        self.open_type = QListWidget()
+        self.open_type.addItems(["Folder", "File"])
+        self.open_type.currentItemChanged.connect(self.file_type_handler)
+        h = self.open_type.sizeHintForRow(0)
+        self.open_type.setFixedHeight(2 * h + 10)
+
+        file_dialog = QPushButton("Open File/Folder")
         file_dialog.clicked.connect(self.open_file_dialog)
 
-        field_dialog = QPushButton("Set fields")
-        field_dialog.clicked.connect(self.open_field_dialog)
-
-        epf_dialog = QPushButton("Set EPFs")
-        epf_dialog.clicked.connect(self.open_epf_dialog)
-
-        fp_layout.addWidget(folder_dialog)
+        fp_layout.addWidget(self.open_type)
         fp_layout.addWidget(file_dialog)
-        fp_layout.addWidget(field_dialog)
-        fp_layout.addWidget(epf_dialog)
+
+        file_pane.setLayout(fp_layout)
 
         self.widgets.update({PlotOption.DATASET: file_pane})
+
+        field_pane = QWidget()
+        field_layout = QVBoxLayout(field_pane)
+
+        self.field_type = QListWidget()
+        self.field_type.addItems(["Cell Fields", "EPFs"])
+        self.num_type = 0
+        self.field_type.currentItemChanged.connect(self.field_type_handler)
+        h = self.field_type.sizeHintForRow(0)
+        self.field_type.setFixedHeight(2 * h + 10)
+
+        self.l = QLineEdit(self)
+        self.t = QLabel(self)
+        field_dialog = QPushButton("Enter extra fields")
+        field_dialog.clicked.connect(self.open_field_dialog)
+
+        field_layout.addWidget(self.field_type)
+        field_layout.addWidget(field_dialog)
+
+        field_pane.setLayout(field_layout)
+
+        self.widgets.update({PlotOption.CELL_FIELDS: field_pane})
 
         make_plot = QPushButton("Make plot")
         make_plot.clicked.connect(self.plot)
@@ -115,42 +121,53 @@ class MakePlotPanel(Publisher, QAdjustable):
                 self.get_widget(PlotTypeOption.PARTICLE_PLOT).setVisible(True)
 
     @QtCore.Slot()
-    def open_field_dialog(self):
-        t = QLineEdit()
-        t.setValidator(QRegularExpressionValidator(QRegularExpression("\[.*\]"), t))
-        QLabel().setText(f"Entered: {t.text()}")
-
-        if t.hasAcceptableInput():
-            self.cellFields = t.text()
-
-    @QtCore.Slot()
-    def open_epf_dialog(self):
-        t = QLineEdit()
-        t.setValidator(QRegularExpressionValidator(QRegularExpression("\[.*\]"), t))
-        QLabel().setText(f"Entered: {t.text()}")
-
-        if t.hasAcceptableInput():
-            self.epf = t.text()
+    def file_type_handler(self):
+        index = self.open_type.currentRow()
+        if index == 0:
+            self.f.setFileMode(QFileDialog.FileMode.Directory)
+        else:
+            self.f.setFileMode(QFileDialog.FileMode.ExistingFile)
 
     @QtCore.Slot()
     def open_file_dialog(self):
-        f = QFileDialog()
-        f.setFileMode(QFileDialog.FileMode.ExistingFile)
-        f.exec()
-        s = f.selectedFiles()[0]
+        self.f.exec()
+        s = self.f.selectedFiles()[0]
         if s is not None:
-            ds = yt.load(s, fields = self.cellFields, extra_particle_fields = self.epf)
+            fields = self.query(PlotOption.CELL_FIELDS)
+            epf = self.query(PlotOption.EPF)
+            ds = yt.load(s, fields = fields, extra_particle_fields = epf)
             self.publish(PlotOption.DATASET, ds)
 
+    def field_type_handler(self):
+        index = self.field_type.currentRow()
+        if index == 0:
+            self.num_type = 0
+        else:
+            self.num_type = 1
+
     @QtCore.Slot()
-    def open_folder_dialog(self):
-        f = QFileDialog()
-        f.setFileMode(QFileDialog.FileMode.Directory)
-        f.exec()
-        s = f.selectedFiles()[0]
-        if s is not None:
-            ds = yt.load(s)
-            self.publish(PlotOption.DATASET, ds)
+    def open_field_dialog(self):
+        popup = QDialog(self)
+        popup_layout = QVBoxLayout()
+
+        self.l.setPlaceholderText("Enter some text. Press enter when done.")
+        self.l.setValidator(QRegularExpressionValidator(QRegularExpression("\[.*\]"), self.l))
+        self.l.returnPressed.connect(self.return_validate)
+
+        popup_layout.addWidget(self.l)
+        popup_layout.addWidget(self.t)
+        popup.setLayout(popup_layout)
+
+        popup.exec()
+
+    def return_validate(self):
+        self.t.setText(f"Entered: {self.l.text()}")
+
+        if self.l.hasAcceptableInput():
+            if self.num_type == 0:
+                self.publish(PlotOption.CELL_FIELDS, self.l.text().lstrip("[").rstrip("]").split(","))
+            else:
+                self.publish(PlotOption.EPF, self.l.text().lstrip("[").rstrip("]").split(","))
 
     @QtCore.Slot()
     def plot(self):

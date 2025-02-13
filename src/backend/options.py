@@ -75,6 +75,30 @@ class PlotOption(Enum):
         data=None,
         default="tmp.png"
     ),
+    CELL_FIELDS = 15, data_tuple(
+        data=None,
+        default=[
+                "Density",
+                "x-velocity",
+                "y-velocity",
+                "z-velocity",
+                "Pressure",
+                "Metallicity",
+                "xHI",
+                "xHII",
+                "xHeII",
+                "xHeIII",
+            ]
+    ),
+    EPF = 16, data_tuple(
+        data=None,
+        default=[
+                ("particle_family", "b"),
+                ("particle_tag", "b"),
+                ("particle_birth_epoch", "d"),
+                ("particle_metallicity", "d"),
+            ]
+    ),
 
 class SliceProjPlotOption(Enum):
     NORMAL = 1, data_tuple(
