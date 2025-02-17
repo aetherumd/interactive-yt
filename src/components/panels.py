@@ -233,7 +233,8 @@ class SliceProjectionPlotPanel(Publisher, Subscriber, QAdjustable):
         field = self.widgets.get(SliceProjPlotOption.FIELDS)
         if type(field) is QComboBox:
             "TODO THIS DOESNT WORK!!"
-            self.publish(SliceProjPlotOption.FIELDS, literal_eval(field.currentText()))
+            if field.currentText() is not "":
+                self.publish(SliceProjPlotOption.FIELDS, literal_eval(field.currentText()))
     
     def handle_update(self, name):
         match name:
@@ -301,25 +302,29 @@ class ParticlePlotPanel(Publisher, Subscriber, QAdjustable):
     def x_field_manager(self):
         field = self.widgets.get(ParticlePlotOption.X_FIELD)
         if type(field) is QComboBox:
-            self.publish(ParticlePlotOption.X_FIELD, literal_eval(field.currentText()))
+            if field.currentText() is not "":
+                self.publish(ParticlePlotOption.X_FIELD, literal_eval(field.currentText()))
     
     @QtCore.Slot()
     def y_field_manager(self):
         field = self.widgets.get(ParticlePlotOption.Y_FIELD)
         if type(field) is QComboBox:
-            self.publish(ParticlePlotOption.Y_FIELD, literal_eval(field.currentText()))
+            if field.currentText() is not "":
+                self.publish(ParticlePlotOption.Y_FIELD, literal_eval(field.currentText()))
 
     @QtCore.Slot()
     def z_field_manager(self):
         field = self.widgets.get(ParticlePlotOption.Z_FIELDS)
         if type(field) is QComboBox:
-            self.publish(ParticlePlotOption.Z_FIELDS, literal_eval(field.currentText()))
+            if field.currentText() is not "":
+                self.publish(ParticlePlotOption.Z_FIELDS, literal_eval(field.currentText()))
 
     @QtCore.Slot()
     def weight_field_manager(self):
         field = self.widgets.get(PlotOption.WEIGHT_FIELD)
         if type(field) is QComboBox:
-            self.publish(PlotOption.WEIGHT_FIELD, literal_eval(field.currentText()))
+            if field.currentText() is not "":
+                self.publish(PlotOption.WEIGHT_FIELD, literal_eval(field.currentText()))
     
     def handle_update(self, name):
         match name:
