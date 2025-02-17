@@ -335,35 +335,29 @@ class EditPlotPanel(Publisher, QAdjustable):
         x_region = self.add_widget("x_region",QAdjustable())
         x_region_layout = QHBoxLayout(x_region) 
         x_region.add_widget("x_minus",QPushButton("-"))
-        x_input = x_region.add_widget("x_input",QLineEdit(""))
+        x_input = x_region.add_widget("x_input",QLineEdit("0.0"))
         x_region.add_widget("x_plus",QPushButton("+"))
 
         for i in x_region.widgets.values():
           x_region_layout.addWidget(i)
-          if type(i)==QPushButton:
-            i.clicked.connect(self.x_update_handler)
 
         y_region = self.add_widget("y_region",QAdjustable())
         y_region_layout = QHBoxLayout(y_region) 
         y_region.add_widget("y_minus",QPushButton("-"))
-        y_input = y_region.add_widget("y_input",QLineEdit(""))
+        y_input = y_region.add_widget("y_input",QLineEdit("0.0"))
         y_region.add_widget("y_plus",QPushButton("+"))
 
         for i in y_region.widgets.values():
           y_region_layout.addWidget(i)
-          if type(i)==QPushButton:
-            i.clicked.connect(self.y_update_handler)
 
         zoom_region = self.add_widget("zoom_region",QAdjustable())
         zoom_region_layout = QHBoxLayout(zoom_region) 
         zoom_region.add_widget("zoom_minus",QPushButton("-"))
-        zoom_input = zoom_region.add_widget("zoom_input",QLineEdit(""))
+        zoom_input = zoom_region.add_widget("zoom_input",QLineEdit("0.0"))
         zoom_region.add_widget("zoom_plus",QPushButton("+"))
 
         for i in zoom_region.widgets.values():
           zoom_region_layout.addWidget(i)
-          if type(i)==QPushButton:
-            i.clicked.connect(self.zoom_update_handler)
         
         layout.addWidget(QLabel("x"))
         layout.addWidget(x_region)
@@ -372,15 +366,40 @@ class EditPlotPanel(Publisher, QAdjustable):
         layout.addWidget(QLabel("zoom"))
         layout.addWidget(zoom_region)
 
+        x_region.get_widget("x_minus").clicked.connect(self.x_minus_update_handler)
+        x_region.get_widget("x_plus").clicked.connect(self.x_plus_update_handler)
+        y_region.get_widget("y_minus").clicked.connect(self.y_minus_update_handler)
+        y_region.get_widget("y_plus").clicked.connect(self.y_plus_update_handler)
+        zoom_region.get_widget("zoom_minus").clicked.connect(self.zoom_minus_update_handler)
+        zoom_region.get_widget("zoom_plus").clicked.connect(self.zoom_plus_update_handler)
+
 
     @QtCore.Slot()
-    def x_update_handler(self):
-        pass
+    def x_plus_update_handler(self):
+        data = abs(float(self.get_widget("x_region").get_widget("x_input").text()))
+        self.publish(UserAction.PAN_REL_X,data)
 
     @QtCore.Slot()
-    def y_update_handler(self):
-        pass
+    def x_minus_update_handler(self):
+        data = -1 * abs(float(self.get_widget("x_region").get_widget("x_input").text()))
+        self.publish(UserAction.PAN_REL_X,data)
 
     @QtCore.Slot()
-    def zoom_update_handler(self):
-        pass
+    def y_plus_update_handler(self):
+        data = abs(float(self.get_widget("y_region").get_widget("y_input").text()))
+        self.publish(UserAction.PAN_REL_Y,data)
+
+    @QtCore.Slot()
+    def y_minus_update_handler(self):
+        data = -1 * abs(float(self.get_widget("y_region").get_widget("y_input").text()))
+        self.publish(UserAction.PAN_REL_Y,data)
+
+    @QtCore.Slot()
+    def zoom_plus_update_handler(self):
+        data = 1 + abs(float(self.get_widget("zoom_region").get_widget("zoom_input").text()))
+        self.publish(UserAction.ZOOM,data)
+
+    @QtCore.Slot()
+    def zoom_minus_update_handler(self):
+        data = 1 - abs(float(self.get_widget("zoom_region").get_widget("zoom_input").text()))
+        self.publish(UserAction.ZOOM,data)
