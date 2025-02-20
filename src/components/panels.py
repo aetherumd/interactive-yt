@@ -22,8 +22,6 @@ class MakePlotPanel(Publisher, Subscriber, QAdjustable):
         super().__init__(*args, **kwargs)
         QAdjustable.__init__(self)
 
-        self.subscribe([PlotOption.CELL_FIELDS, PlotOption.EPF])
-
         for op in PlotOption:
             self.add_field(op)
         
@@ -72,28 +70,6 @@ class MakePlotPanel(Publisher, Subscriber, QAdjustable):
 
         self.widgets.update({PlotOption.DATASET: file_pane})
 
-        field_pane = QWidget()
-        field_layout = QVBoxLayout(field_pane)
-
-        self.field_type = QListWidget()
-        self.field_type.addItems(["Cell Fields", "EPFs"])
-        self.num_type = 0
-        self.field_type.currentItemChanged.connect(self.field_type_handler)
-        h = self.field_type.sizeHintForRow(0)
-        self.field_type.setFixedHeight(2 * h + 10)
-
-        self.l = QLineEdit(self)
-        self.t = QLabel(self)
-        field_dialog = QPushButton("Enter extra fields")
-        field_dialog.clicked.connect(self.open_field_dialog)
-
-        field_layout.addWidget(self.field_type)
-        field_layout.addWidget(field_dialog)
-
-        field_pane.setLayout(field_layout)
-
-        self.widgets.update({PlotOption.CELL_FIELDS: field_pane})
-
         make_plot = QPushButton("Make plot")
         make_plot.clicked.connect(self.plot)
 
@@ -138,37 +114,6 @@ class MakePlotPanel(Publisher, Subscriber, QAdjustable):
             ds = yt.load(s, fields = fields, extra_particle_fields = epf)
             self.publish(PlotOption.DATASET, ds)
 
-    def field_type_handler(self):
-        index = self.field_type.currentRow()
-        if index == 0:
-            self.num_type = 0
-        else:
-            self.num_type = 1
-
-    @QtCore.Slot()
-    def open_field_dialog(self):
-        popup = QDialog(self)
-        popup_layout = QVBoxLayout()
-
-        self.l.setPlaceholderText("Enter some text. Press enter when done.")
-        self.l.setValidator(QRegularExpressionValidator(QRegularExpression("\[.*\]"), self.l))
-        self.l.returnPressed.connect(self.return_validate)
-
-        popup_layout.addWidget(self.l)
-        popup_layout.addWidget(self.t)
-        popup.setLayout(popup_layout)
-
-        popup.exec()
-
-    def return_validate(self):
-        self.t.setText(f"Entered: {self.l.text()}")
-
-        if self.l.hasAcceptableInput():
-            if self.num_type == 0:
-                self.publish(PlotOption.CELL_FIELDS, self.l.text().lstrip("[").rstrip("]").split(","))
-            else:
-                self.publish(PlotOption.EPF, self.l.text().lstrip("[").rstrip("]").split(","))
-
     @QtCore.Slot()
     def plot(self):
         self.publish(UserAction.CREATE_PLOT, True)
@@ -204,17 +149,15 @@ class SliceProjectionPlotPanel(Publisher, Subscriber, QAdjustable):
         direction.textChanged.connect(self.direction_manager)
         
         field = QComboBox()
-        ds = self.query(PlotOption.DATASET)
-        if ds is not None:
-            for entry in ds.fields:
-                field.addItem(entry)
         self.widgets.update({SliceProjPlotOption.FIELDS: field})
         field.currentIndexChanged.connect(self.field_manager)
-        
-        
+
+        weight_field = QComboBox()
+        self.widgets.update({PlotOption.WEIGHT_FIELD: weight_field})
+        weight_field.currentIndexChanged.connect(self.weight_field_manager)
+
         for wgt in self.widgets.values():
             layout.addWidget(wgt)
-
     
     @QtCore.Slot()
     def direction_manager(self):
@@ -232,10 +175,18 @@ class SliceProjectionPlotPanel(Publisher, Subscriber, QAdjustable):
     def field_manager(self):
         field = self.widgets.get(SliceProjPlotOption.FIELDS)
         if type(field) is QComboBox:
-            "TODO THIS DOESNT WORK!!"
-            if field.currentText() is not "":
+            if field.currentText() != "":
                 self.publish(SliceProjPlotOption.FIELDS, literal_eval(field.currentText()))
-    
+
+    @QtCore.Slot()
+    def weight_field_manager(self):
+        field = self.widgets.get(PlotOption.WEIGHT_FIELD)
+        if type(field) is QComboBox:
+            if field.currentText() != "":
+                self.publish(PlotOption.WEIGHT_FIELD, literal_eval(field.currentText()))
+            elif field.currentText() == "None":
+                self.publish(PlotOption.WEIGHT_FIELD, None)
+
     def handle_update(self, name):
         match name:
             case PlotOption.DATASET:
@@ -243,9 +194,16 @@ class SliceProjectionPlotPanel(Publisher, Subscriber, QAdjustable):
                 if type(ds) is not None:
                     field = self.widgets.get(SliceProjPlotOption.FIELDS)
                     if type(field) is QComboBox:
-                        field.clear()    
-                        for entry in ds.field_list:
+                        field.clear()
+                        for entry in ds.derived_field_list:
                             field.addItem(str(entry))
+
+                    weight_field = self.widgets.get(PlotOption.WEIGHT_FIELD)
+                    if type(weight_field) is QComboBox:
+                        weight_field.clear()
+                        weight_field.addItem("None")
+                        for entry in ds.derived_field_list:
+                            weight_field.addItem(str(entry))
 
 class ParticlePlotPanel(Publisher, Subscriber, QAdjustable):
     """
@@ -277,14 +235,6 @@ class ParticlePlotPanel(Publisher, Subscriber, QAdjustable):
         z_field = QComboBox()
         weight_field = QComboBox()
 
-        ds = self.query(PlotOption.DATASET)
-        if ds is not None:
-            for entry in ds.fields:
-                x_field.addItem(entry)
-                y_field.addItem(entry)
-                z_field.addItem(entry)
-                weight_field.addItem(entry)
-
         self.widgets.update({ParticlePlotOption.X_FIELD: x_field})
         self.widgets.update({ParticlePlotOption.Y_FIELD: y_field})
         self.widgets.update({ParticlePlotOption.Z_FIELDS: z_field})
@@ -302,29 +252,31 @@ class ParticlePlotPanel(Publisher, Subscriber, QAdjustable):
     def x_field_manager(self):
         field = self.widgets.get(ParticlePlotOption.X_FIELD)
         if type(field) is QComboBox:
-            if field.currentText() is not "":
+            if field.currentText() != "":
                 self.publish(ParticlePlotOption.X_FIELD, literal_eval(field.currentText()))
     
     @QtCore.Slot()
     def y_field_manager(self):
         field = self.widgets.get(ParticlePlotOption.Y_FIELD)
         if type(field) is QComboBox:
-            if field.currentText() is not "":
+            if field.currentText() != "":
                 self.publish(ParticlePlotOption.Y_FIELD, literal_eval(field.currentText()))
 
     @QtCore.Slot()
     def z_field_manager(self):
         field = self.widgets.get(ParticlePlotOption.Z_FIELDS)
         if type(field) is QComboBox:
-            if field.currentText() is not "":
+            if field.currentText() != "":
                 self.publish(ParticlePlotOption.Z_FIELDS, literal_eval(field.currentText()))
 
     @QtCore.Slot()
     def weight_field_manager(self):
         field = self.widgets.get(PlotOption.WEIGHT_FIELD)
         if type(field) is QComboBox:
-            if field.currentText() is not "":
+            if field.currentText() != "":
                 self.publish(PlotOption.WEIGHT_FIELD, literal_eval(field.currentText()))
+            elif field.currentText() == "None":
+                self.publish(PlotOption.WEIGHT_FIELD, None)
     
     def handle_update(self, name):
         match name:
@@ -335,13 +287,20 @@ class ParticlePlotPanel(Publisher, Subscriber, QAdjustable):
                         self.widgets.get(ParticlePlotOption.X_FIELD),
                         self.widgets.get(ParticlePlotOption.Y_FIELD),
                         self.widgets.get(ParticlePlotOption.Z_FIELDS),
-                        self.widgets.get(PlotOption.WEIGHT_FIELD),
                              ]
                     for field in boxes:
                         if type(field) is QComboBox:
                             field.clear()    
-                            for entry in ds.field_list:
+                            for entry in ds.derived_field_list:
                                 field.addItem(str(entry))
+
+                    weight_field = self.widgets.get(PlotOption.WEIGHT_FIELD)
+                    if type(weight_field) is QComboBox:
+                        weight_field.clear()
+                        weight_field.addItem("None")
+                        for entry in ds.derived_field_list:
+                            weight_field.addItem(str(entry))
+
                                 
 class ImagePanel(Subscriber, QAdjustable):
     """

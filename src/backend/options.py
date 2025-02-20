@@ -84,6 +84,7 @@ class PlotOption(Enum):
                 "z-velocity",
                 "Pressure",
                 "Metallicity",
+                "dark_matter_density",
                 "xHI",
                 "xHII",
                 "xHeII",
