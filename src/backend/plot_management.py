@@ -169,7 +169,6 @@ class PlotManager(Subscriber, Publisher):
                         UserAction.ZOOM,
                         UserAction.AXES_UNIT,
                         UserAction.IMG_UNIT,
-                        UserAction.CENTER,
                         UserAction.FLIP_HORIZONTAL,
                         UserAction.FLIP_VERTICAL,
                         UserAction.SWAP_AXES,
@@ -199,8 +198,6 @@ class PlotManager(Subscriber, Publisher):
                                 plot.set_axes_unit(data)
                             case UserAction.IMG_UNIT:
                                 plot.set_unit(data)
-                            case UserAction.CENTER:
-                                plot.set_center(data)
                             case UserAction.FLIP_HORIZONTAL:
                                 plot.flip_horizontal()
                             case UserAction.FLIP_VERTICAL:

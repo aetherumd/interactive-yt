@@ -9,6 +9,7 @@ from backend.options import *
 
 from ast import literal_eval
 import yt, re
+import numpy as np
 
 class MakePlotPanel(Publisher, Subscriber, QAdjustable):
     """
@@ -70,6 +71,13 @@ class MakePlotPanel(Publisher, Subscriber, QAdjustable):
 
         self.widgets.update({PlotOption.DATASET: file_pane})
 
+        width_tuple = QLineEdit("")
+        validator = QRegularExpressionValidator(QRegularExpression("^\([0-9]+(, k?pc)?\)(,\([0-9]+(, pc|kpc)?\))?$"))
+        width_tuple.setValidator(validator)
+        self.widgets.update({PlotOption.WIDTH: width_tuple})
+        width_tuple.textChanged.connect(self.width_handler())
+
+        self.widgets.update({PlotOption.WIDTH: width_tuple})
         make_plot = QPushButton("Make plot")
         make_plot.clicked.connect(self.plot)
 
@@ -112,7 +120,25 @@ class MakePlotPanel(Publisher, Subscriber, QAdjustable):
             fields = self.query(PlotOption.CELL_FIELDS)
             epf = self.query(PlotOption.EPF)
             ds = yt.load(s, fields = fields, extra_particle_fields = epf)
+            self.calculate_center(ds)
+            center = self.query(PlotOption.CENTER)
+            self.publish(PlotOption.CENTER, center)
             self.publish(PlotOption.DATASET, ds)
+
+    def calculate_center(self, ds):
+        ad = ds.all_data()
+        x = np.mean(np.array(ad["star", "particle_position_x"]))
+        y = np.mean(np.array(ad["star", "particle_position_y"]))
+        z = np.mean(np.array(ad["star", "particle_position_z"]))
+        ctr = np.array([x, y, z])
+        self.publish(PlotOption.CENTER, ctr)
+
+    @QtCore.Slot()
+    def width_handler(self):
+        width_num = self.widgets.get(PlotOption.WIDTH)
+        if type(width_num) is QLineEdit:
+            if width_num.text() != "":
+                self.publish(PlotOption.WIDTH, width_num.text())
 
     @QtCore.Slot()
     def plot(self):
@@ -143,8 +169,7 @@ class SliceProjectionPlotPanel(Publisher, Subscriber, QAdjustable):
         """
         layout = QVBoxLayout(self)
 
-        direction = QLineEdit("")
-        direction.setText("x")
+        direction = QLineEdit("x")
         self.widgets.update({SliceProjPlotOption.NORMAL: direction})
         direction.textChanged.connect(self.direction_manager)
         
@@ -184,8 +209,6 @@ class SliceProjectionPlotPanel(Publisher, Subscriber, QAdjustable):
         if type(field) is QComboBox:
             if field.currentText() != "":
                 self.publish(PlotOption.WEIGHT_FIELD, literal_eval(field.currentText()))
-            elif field.currentText() == "None":
-                self.publish(PlotOption.WEIGHT_FIELD, None)
 
     def handle_update(self, name):
         match name:
@@ -275,8 +298,6 @@ class ParticlePlotPanel(Publisher, Subscriber, QAdjustable):
         if type(field) is QComboBox:
             if field.currentText() != "":
                 self.publish(PlotOption.WEIGHT_FIELD, literal_eval(field.currentText()))
-            elif field.currentText() == "None":
-                self.publish(PlotOption.WEIGHT_FIELD, None)
     
     def handle_update(self, name):
         match name:
@@ -333,7 +354,39 @@ class ImagePanel(Subscriber, QAdjustable):
     def set_img(self, img: QImage):
         self.get_widget("image").setPixmap(QPixmap.fromImage(img))
 
-        
+
+# class DataObjectPanel(Publisher, Subscriber, QAdjustable):
+#     def __init__(self, *args, **kwargs):
+#         super().__init__(*args, **kwargs)
+#         QAdjustable.__init__(self)
+#
+#         self.add_field(PlotOption.DATA_SOURCE)
+#         self.add_field(PlotOption.CENTER)
+#
+#         self.subscribe([PlotOption.DATASET])
+#
+#         self.__init_layout__()
+#
+#     def __init_layout__(self):
+#         layout = QVBoxLayout(self)
+#
+#         obj_type = QComboBox()
+#         objs = ["Box", "Disk", "Ellipsoid", "Sphere"]
+#         for obj in objs:
+#             obj_type.addItem(obj)
+#         self.widgets.update({PlotOption.DATA_SOURCE: obj_type})
+#         obj_type.currentIndexChanged.connect(self.object_handler)
+#
+#     def handle_update(self, name):
+#         match name:
+#             case PlotOption.DATASET:
+#                 ds = self.query(name)
+#                 if type(ds) is not None:
+#                     elts = self.widgets.get(PlotOption.DATASET)
+#                     if isinstance(elts, list):
+
+
+
 class EditPlotPanel(Publisher, QAdjustable):
     """
     Gives options related to editing plots.

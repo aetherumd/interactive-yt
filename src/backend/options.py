@@ -192,19 +192,15 @@ class UserAction(Enum):
         data=None,
         default=None
     ),
-    CENTER = 9, data_tuple(
-        data=None,
-        default=(0.5, 0.5)
-    ),
-    FLIP_HORIZONTAL = 10, data_tuple(
+    FLIP_HORIZONTAL = 9, data_tuple(
         data=None,
         default=False
     ),
-    FLIP_VERTICAL = 11, data_tuple(
+    FLIP_VERTICAL = 10, data_tuple(
         data=None,
         default=False
     ),
-    SWAP_AXES = 12, data_tuple(
+    SWAP_AXES = 11, data_tuple(
         data=None,
         default=False
     ),
